@@ -9,3 +9,5 @@ export * from './services/report-service';
 export * from './recurrence';
 export * from './schemas/schedule';
 export * from './services/schedule-service';
+export * from './schemas/reminder';
+export * from './services/reminder-service';
