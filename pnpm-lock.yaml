@@ -85,6 +85,9 @@ importers:
       '@types/node':
         specifier: ^22.10.0
         version: 22.20.1
+      drizzle-orm:
+        specifier: ^0.38.3
+        version: 0.38.4(@types/better-sqlite3@7.6.13)(better-sqlite3@11.10.0)
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
