@@ -1,7 +1,13 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
-import { API_BASE_URL, E2E_API_PORT, E2E_DB_PATH, E2E_WEB_PORT, WEB_BASE_URL } from './e2e/fixtures';
+import {
+  API_BASE_URL,
+  E2E_API_PORT,
+  E2E_DB_PATH,
+  E2E_WEB_PORT,
+  WEB_BASE_URL,
+} from './e2e/fixtures';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, '../..');

@@ -87,5 +87,7 @@ test('quick-add creates a task, then it drags from the board into Done and persi
 
   // 7) Reload — persistence proves the REST write, not just optimistic UI.
   await page.reload();
-  await expect(page.getByTestId('board-column-done').getByTestId(`task-card-${taskId}`)).toBeVisible();
+  await expect(
+    page.getByTestId('board-column-done').getByTestId(`task-card-${taskId}`),
+  ).toBeVisible();
 });
