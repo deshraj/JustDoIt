@@ -13,3 +13,4 @@ export * from './schemas/reminder';
 export * from './services/reminder-service';
 export * from './events/bus';
 export * from './events/emit';
+export * from './services/activity-service';
