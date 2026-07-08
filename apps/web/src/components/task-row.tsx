@@ -15,14 +15,31 @@ const PRIORITY_DOT: Record<NonNullable<Task['priority']>, string> = {
   p3: 'bg-priority-p3',
 };
 
+function HighlightedText({ text, query }: { text: string; query?: string }) {
+  const needle = query?.trim();
+  if (!needle) return <>{text}</>;
+  const idx = text.toLowerCase().indexOf(needle.toLowerCase());
+  if (idx === -1) return <>{text}</>;
+  const end = idx + needle.length;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="rounded-sm bg-primary/25 text-inherit">{text.slice(idx, end)}</mark>
+      {text.slice(end)}
+    </>
+  );
+}
+
 export interface TaskRowProps {
   task: Task;
   projectName?: string;
   detailHref?: string;
+  /** When set, the matched substring of the title is wrapped in <mark> (search results). */
+  highlightQuery?: string;
 }
 
 export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function TaskRow(
-  { task, projectName, detailHref },
+  { task, projectName, detailHref, highlightQuery },
   titleRef,
 ) {
   const completeTask = useCompleteTask();
@@ -61,7 +78,7 @@ export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function Task
           isDone && 'text-muted-foreground line-through',
         )}
       >
-        {task.title}
+        <HighlightedText text={task.title} query={highlightQuery} />
       </Link>
 
       {task.dueAt && (
