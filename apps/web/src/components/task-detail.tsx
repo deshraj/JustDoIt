@@ -14,6 +14,7 @@ import { MarkdownEditor } from '@/components/markdown-editor';
 import { SubtaskList } from '@/components/subtask-list';
 import { TagPicker } from '@/components/tag-picker';
 import { InlineTimer } from '@/components/inline-timer';
+import { ActivityTimeline } from '@/components/activity-timeline';
 import { cn } from '@/lib/utils';
 
 function TitleField({ task, onSave }: { task: Task; onSave: (title: string) => void }) {
@@ -119,7 +120,7 @@ export function TaskDetail({ taskId }: { taskId: string }) {
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Activity
         </h3>
-        <p className="text-sm text-muted-foreground">Activity history — coming in Phase 6.</p>
+        <ActivityTimeline taskId={taskId} />
       </section>
     </div>
   );

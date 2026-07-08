@@ -13,6 +13,7 @@ const listTags = vi.fn();
 const listTaskTags = vi.fn();
 const listTimeEntries = vi.fn();
 const completeTask = vi.fn();
+const listActivity = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -24,6 +25,7 @@ vi.mock('@/lib/api', () => ({
     listTaskTags: (...a: unknown[]) => listTaskTags(...a),
     listTimeEntries: (...a: unknown[]) => listTimeEntries(...a),
     completeTask: (...a: unknown[]) => completeTask(...a),
+    listActivity: (...a: unknown[]) => listActivity(...a),
   },
 }));
 
@@ -68,6 +70,7 @@ describe('TaskDetail', () => {
     listTaskTags.mockReset().mockResolvedValue([]);
     listTimeEntries.mockReset().mockResolvedValue([]);
     completeTask.mockReset().mockResolvedValue(makeTask({ status: 'done' }));
+    listActivity.mockReset().mockResolvedValue([]);
   });
 
   it('renders **bold** markdown as <strong> in the Preview tab', async () => {

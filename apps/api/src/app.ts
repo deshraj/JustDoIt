@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Db } from '@justdoit/core';
+import { startActivityLog, type Db } from '@justdoit/core';
 import { errorHandler } from './middleware/error';
 import { healthRoutes } from './routes/health';
 import { projectRoutes } from './routes/projects';
@@ -13,8 +13,13 @@ import { transferRoutes } from './routes/transfer';
 import { timeRoutes } from './routes/time-entries';
 import { reportRoutes } from './routes/reports';
 import { reminderRoutes } from './routes/reminders';
+import { activityRoutes } from './routes/activity';
 
 export function createApp(db: Db): Hono {
+  // Attach the activity-log subscriber once per app instance so every
+  // mutation made through this app's db is persisted to the audit trail.
+  startActivityLog(db);
+
   const app = new Hono();
   app.onError(errorHandler);
   // apps/web is a browser client on a different origin/port (Next dev on
@@ -40,5 +45,6 @@ export function createApp(db: Db): Hono {
   app.route('/', timeRoutes(db));
   app.route('/', reportRoutes(db));
   app.route('/reminders', reminderRoutes(db));
+  app.route('/', activityRoutes(db));
   return app;
 }

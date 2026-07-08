@@ -31,4 +31,13 @@ export const qk = {
     all: ['reminders'] as const,
     list: (filters: ReminderFilters = {}) => ['reminders', 'list', filters] as const,
   },
+  activity: {
+    task: (taskId: string) => ['activity', 'task', taskId] as const,
+  },
+  savedFilters: {
+    all: ['saved-filters'] as const,
+  },
+  attachments: {
+    task: (taskId: string) => ['attachments', taskId] as const,
+  },
 } as const;

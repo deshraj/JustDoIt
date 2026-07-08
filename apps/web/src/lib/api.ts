@@ -1,14 +1,20 @@
 import {
+  activityEntrySchema,
+  attachmentSchema,
   parseTolerant,
   projectSchema,
   reminderSchema,
+  savedFilterSchema,
   tagSchema,
   taskSchema,
   timeEntrySchema,
   timeReportSchema,
+  type ActivityEntry,
+  type Attachment,
   type EstimateVsActual,
   type Project,
   type Reminder,
+  type SavedFilter,
   type Tag,
   type Task,
   type TaskPriority,
@@ -37,6 +43,9 @@ export type {
   TaskStatus,
   TaskPriority,
   EstimateVsActual,
+  ActivityEntry,
+  SavedFilter,
+  Attachment,
 };
 
 export class ApiError extends Error {
@@ -53,6 +62,15 @@ export class ApiError extends Error {
 
 function getBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+}
+
+/**
+ * Build an absolute API URL for cases that can't go through `request()` —
+ * an `EventSource` (SSE) connection or a plain `<a href>`/`<img src>` link
+ * (attachment downloads). Still the same single base-URL source of truth.
+ */
+export function apiUrl(path: string): string {
+  return `${getBaseUrl()}${path}`;
 }
 
 type QueryValue = string | number | boolean | Date | null | undefined;
@@ -463,6 +481,17 @@ async function deleteReminder(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Activity
+// ---------------------------------------------------------------------------
+
+async function listActivity(entityType: 'task' | 'project' | 'time_entry', entityId: string) {
+  const data = await request<{ activity: unknown[] }>(
+    `/activity${toQueryString({ entity: `${entityType}:${entityId}` })}`,
+  );
+  return data.activity.map((a) => parseTolerant(activityEntrySchema, a, 'activityEntry'));
+}
+
+// ---------------------------------------------------------------------------
 // Export / import
 // ---------------------------------------------------------------------------
 
@@ -512,6 +541,7 @@ export const api = {
   deleteReminder,
   exportData,
   importData,
+  listActivity,
 };
 
 export type Api = typeof api;

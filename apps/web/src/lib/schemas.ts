@@ -125,6 +125,36 @@ export type TimeReport = z.infer<typeof timeReportSchema>;
 export const quickAddResultSchema = taskSchema;
 export type QuickAddResult = z.infer<typeof quickAddResultSchema>;
 
+export const activityEntrySchema = z.object({
+  id: z.string(),
+  entityType: z.string(),
+  entityId: z.string(),
+  action: z.string(),
+  payload: z.record(z.unknown()).nullable(),
+  createdAt: z.coerce.date(),
+});
+export type ActivityEntry = z.infer<typeof activityEntrySchema>;
+
+export const savedFilterSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  query: z.record(z.unknown()),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type SavedFilter = z.infer<typeof savedFilterSchema>;
+
+export const attachmentSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  filename: z.string(),
+  path: z.string(),
+  mime: z.string().nullable(),
+  size: z.number().nullable(),
+  createdAt: z.coerce.date(),
+});
+export type Attachment = z.infer<typeof attachmentSchema>;
+
 /**
  * Parse `data` against `schema`; on mismatch, warn (dev-only) and return the
  * raw data as-is instead of throwing. Keeps the UI resilient to REST shape
