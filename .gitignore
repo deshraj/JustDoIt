@@ -8,3 +8,8 @@ dist/
 .DS_Store
 .env
 .env.local
+.next/
+test-results/
+playwright-report/
+blob-report/
+next-env.d.ts
