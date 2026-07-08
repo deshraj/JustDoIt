@@ -10,6 +10,7 @@ import { quickAddRoutes } from './routes/quick-add';
 import { transferRoutes } from './routes/transfer';
 import { timeRoutes } from './routes/time-entries';
 import { reportRoutes } from './routes/reports';
+import { reminderRoutes } from './routes/reminders';
 
 export function createApp(db: Db): Hono {
   const app = new Hono();
@@ -23,5 +24,6 @@ export function createApp(db: Db): Hono {
   app.route('/', transferRoutes(db));
   app.route('/', timeRoutes(db));
   app.route('/', reportRoutes(db));
+  app.route('/reminders', reminderRoutes(db));
   return app;
 }
