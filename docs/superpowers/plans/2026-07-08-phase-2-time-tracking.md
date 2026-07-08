@@ -55,12 +55,14 @@ apps/api/
 ## Task 1: Zod schemas for time entries & reports
 
 **Files:**
+
 - Create: `packages/core/src/schemas/time-entry-schema.ts`
 - Create: `packages/core/src/schemas/report-schema.ts`
 - Create: `packages/core/src/schemas/time-entry-schema.test.ts`
 - Modify: `packages/core/src/index.ts` (re-export the two schema modules)
 
 **Interfaces:**
+
 - Consumes: `TIME_ENTRY_SOURCES` from `../db/schema`; Zod.
 - Produces:
   - `logManualSchema` → `LogManualInput = { taskId: string; startedAt: Date; endedAt?: Date; durationSeconds?: number; note?: string }`. Refinements: exactly one of `endedAt`/`durationSeconds` present; `endedAt >= startedAt` when given.
@@ -73,11 +75,7 @@ apps/api/
 
 ```ts
 import { describe, it, expect } from 'vitest';
-import {
-  logManualSchema,
-  updateEntrySchema,
-  timeEntryFilterSchema,
-} from './time-entry-schema';
+import { logManualSchema, updateEntrySchema, timeEntryFilterSchema } from './time-entry-schema';
 
 describe('logManualSchema', () => {
   it('accepts an explicit endedAt and coerces ISO strings to Date', () => {
@@ -294,11 +292,13 @@ git commit -m "feat(core): add zod schemas for time entries and time reports"
 ## Task 2: `timeService` — timers (start/stop/getRunning)
 
 **Files:**
+
 - Create: `packages/core/src/services/time-service.ts`
 - Create: `packages/core/src/services/time-service.test.ts`
 - Modify: `packages/core/src/index.ts` (re-export the service)
 
 **Interfaces:**
+
 - Consumes: `Db` from `../db/client`; `tasks`, `timeEntries`, `TimeEntry` from `../db/schema`; `NotFoundError`, `ValidationError` from `../errors`.
 - Produces (this task implements 3 of the 7 methods; the object is completed in Task 3):
   - `timeService.getRunning(db: Db): TimeEntry | null` — the single row with `endedAt IS NULL` (latest `startedAt`), or `null`.
@@ -524,10 +524,12 @@ git commit -m "feat(core): add timeService start/stop timers with single-running
 ## Task 3: `timeService` — manual entries & management (logManual/listEntries/updateEntry/deleteEntry)
 
 **Files:**
+
 - Modify: `packages/core/src/services/time-service.ts` (add 4 methods)
 - Modify: `packages/core/src/services/time-service.test.ts` (add describe block)
 
 **Interfaces:**
+
 - Consumes: `Db`; `tasks`, `timeEntries`, `TimeEntry`; `NotFoundError`, `ValidationError`; `LogManualInput`, `UpdateEntryInput`, `TimeEntryFilter` from `../schemas/time-entry-schema`.
 - Produces (completes the `timeService` object):
   - `logManual(db: Db, input: LogManualInput, now?: Date): TimeEntry` — validates task exists; derives the missing side of `endedAt`/`durationSeconds`; inserts `source: 'manual'`.
@@ -783,11 +785,13 @@ git commit -m "feat(core): add timeService manual entries, listing, update, dele
 ## Task 4: `reportService` — time report (totals + estimate vs actual)
 
 **Files:**
+
 - Create: `packages/core/src/services/report-service.ts`
 - Create: `packages/core/src/services/report-service.test.ts`
 - Modify: `packages/core/src/index.ts` (re-export the service + result types)
 
 **Interfaces:**
+
 - Consumes: `Db`; `tasks`, `projects`, `tags`, `taskTags`, `timeEntries` from `../db/schema`; `TimeReportQuery` from `../schemas/report-schema`.
 - Produces:
   - `reportService.timeReport(db: Db, query: TimeReportQuery): TimeReport`.
@@ -819,8 +823,16 @@ describe('reportService.timeReport', () => {
 
   it('groups by UTC day and sums only closed entries', () => {
     const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
-    timeService.logManual(db, { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
-    timeService.logManual(db, { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 }, D2_0900);
+    timeService.logManual(
+      db,
+      { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
+      D1_0900,
+    );
+    timeService.logManual(
+      db,
+      { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 },
+      D2_0900,
+    );
     // A running timer must NOT be counted.
     timeService.startTimer(db, t!.id, D2_0900);
 
@@ -834,8 +846,16 @@ describe('reportService.timeReport', () => {
 
   it('respects the from/to window on startedAt', () => {
     const [t] = db.insert(tasks).values({ title: 'A' }).returning().all();
-    timeService.logManual(db, { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
-    timeService.logManual(db, { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 }, D2_0900);
+    timeService.logManual(
+      db,
+      { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
+      D1_0900,
+    );
+    timeService.logManual(
+      db,
+      { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 },
+      D2_0900,
+    );
     const report = reportService.timeReport(db, {
       groupBy: 'day',
       from: new Date('2026-07-09T00:00:00.000Z'),
@@ -845,10 +865,22 @@ describe('reportService.timeReport', () => {
 
   it('groups by project, mapping null project to Inbox', () => {
     const [proj] = db.insert(projects).values({ name: 'Work' }).returning().all();
-    const withProj = db.insert(tasks).values({ title: 'A', projectId: proj!.id }).returning().all()[0]!;
+    const withProj = db
+      .insert(tasks)
+      .values({ title: 'A', projectId: proj!.id })
+      .returning()
+      .all()[0]!;
     const noProj = db.insert(tasks).values({ title: 'B' }).returning().all()[0]!;
-    timeService.logManual(db, { taskId: withProj.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
-    timeService.logManual(db, { taskId: noProj.id, startedAt: D1_0900, durationSeconds: 600 }, D1_0900);
+    timeService.logManual(
+      db,
+      { taskId: withProj.id, startedAt: D1_0900, durationSeconds: 3600 },
+      D1_0900,
+    );
+    timeService.logManual(
+      db,
+      { taskId: noProj.id, startedAt: D1_0900, durationSeconds: 600 },
+      D1_0900,
+    );
 
     const report = reportService.timeReport(db, { groupBy: 'project' });
     expect(report.buckets[0]).toEqual({
@@ -866,7 +898,11 @@ describe('reportService.timeReport', () => {
     const [blue] = db.insert(tags).values({ name: 'blue' }).returning().all();
     db.insert(taskTags).values({ taskId: t!.id, tagId: red!.id }).run();
     db.insert(taskTags).values({ taskId: t!.id, tagId: blue!.id }).run();
-    timeService.logManual(db, { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
+    timeService.logManual(
+      db,
+      { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
+      D1_0900,
+    );
 
     const report = reportService.timeReport(db, { groupBy: 'tag' });
     expect(report.totalSeconds).toBe(3600); // grand total counts the entry once
@@ -1077,11 +1113,13 @@ git commit -m "feat(core): add reportService time report with estimate-vs-actual
 ## Task 5: REST routes — timers & time-entries CRUD
 
 **Files:**
+
 - Create: `apps/api/src/routes/time-entries.ts`
 - Create: `apps/api/src/routes/time-entries.test.ts`
 - Modify: `apps/api/src/app.ts` (mount the router)
 
 **Interfaces:**
+
 - Consumes: `timeService`, `logManualSchema`, `updateEntrySchema`, `timeEntryFilterSchema` from `@justdoit/core`; `AppEnv` from `../types`; `createApp` from `../app`; Hono + `@hono/zod-validator`. Errors bubble to the Phase 1 error middleware.
 - Produces a mounted `Hono<AppEnv>` router (`timeRoutes`) exposing:
   - `POST /tasks/:id/timer/start` → `timeService.startTimer(db, id)` → `201` with the new entry.
@@ -1276,11 +1314,13 @@ git commit -m "feat(api): add timer and time-entry REST routes"
 ## Task 6: REST route — `GET /reports/time`
 
 **Files:**
+
 - Create: `apps/api/src/routes/reports.ts`
 - Create: `apps/api/src/routes/reports.test.ts`
 - Modify: `apps/api/src/app.ts` (mount the router)
 
 **Interfaces:**
+
 - Consumes: `reportService`, `timeReportQueryParamsSchema` from `@justdoit/core`; `AppEnv`; `createApp`; Hono + `@hono/zod-validator`.
 - Produces a mounted `Hono<AppEnv>` router (`reportRoutes`) exposing:
   - `GET /reports/time?group_by=&from=&to=` (`zValidator('query', timeReportQueryParamsSchema)`) → `reportService.timeReport(db, query)` → `200` with the `TimeReport`. Missing/invalid `group_by` → `400` via the validator.

@@ -81,12 +81,14 @@ apps/web/src/
 ## Task 1: Domain event bus primitive (core)
 
 **Files:**
+
 - Create: `packages/core/src/events/bus.ts`
 - Create: `packages/core/src/events/emit.ts`
 - Create: `packages/core/src/events/bus.test.ts`
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: nothing (pure primitive).
 - Produces:
   - `interface DomainEvent { type: string; entityType: EntityType; entityId: string; action: DomainEventAction; payload?: Record<string, unknown>; at: number }` where `type EntityType = 'task' | 'project' | 'time_entry'`.
@@ -105,9 +107,21 @@ describe('EventBus', () => {
     const bus = new EventBus();
     const seen: DomainEvent[] = [];
     const off = bus.subscribe((e) => seen.push(e));
-    bus.publish({ type: 'task.created', entityType: 'task', entityId: 't1', action: 'created', at: 1 });
+    bus.publish({
+      type: 'task.created',
+      entityType: 'task',
+      entityId: 't1',
+      action: 'created',
+      at: 1,
+    });
     off();
-    bus.publish({ type: 'task.updated', entityType: 'task', entityId: 't1', action: 'updated', at: 2 });
+    bus.publish({
+      type: 'task.updated',
+      entityType: 'task',
+      entityId: 't1',
+      action: 'updated',
+      at: 2,
+    });
     expect(seen).toHaveLength(1);
     expect(seen[0]!.type).toBe('task.created');
   });
@@ -119,7 +133,9 @@ describe('EventBus', () => {
       throw new Error('boom');
     });
     bus.subscribe((e) => seen.push(e.type));
-    expect(() => bus.publish({ type: 'x', entityType: 'task', entityId: 'a', action: 'updated', at: 0 })).not.toThrow();
+    expect(() =>
+      bus.publish({ type: 'x', entityType: 'task', entityId: 'a', action: 'updated', at: 0 }),
+    ).not.toThrow();
     expect(seen).toEqual(['x']);
   });
 });
@@ -132,7 +148,12 @@ describe('emit helper + singleton', () => {
     events.subscribe((e) => seen.push(e));
     emit('task', 't1', 'status_changed', { from: 'todo', to: 'done' }, 123);
     emit('time_entry', 'e1', 'started', undefined, 456);
-    expect(seen[0]).toMatchObject({ type: 'task.status_changed', entityType: 'task', entityId: 't1', at: 123 });
+    expect(seen[0]).toMatchObject({
+      type: 'task.status_changed',
+      entityType: 'task',
+      entityId: 't1',
+      at: 123,
+    });
     expect(seen[1]!.type).toBe('time.started');
   });
 });
@@ -220,7 +241,14 @@ export function emit(
   payload?: Record<string, unknown>,
   at: number = Date.now(),
 ): void {
-  events.publish({ type: `${PREFIX[entityType]}.${action}`, entityType, entityId, action, payload, at });
+  events.publish({
+    type: `${PREFIX[entityType]}.${action}`,
+    entityType,
+    entityId,
+    action,
+    payload,
+    at,
+  });
 }
 ```
 
@@ -250,12 +278,14 @@ git commit -m "feat(core): add in-process domain event bus"
 Wire `emit(...)` into the existing task/project/time services so every mutation announces itself. This is the single cross-cutting change that powers both activity logging (Task 3) and SSE (Task 5).
 
 **Files:**
+
 - Modify: `packages/core/src/services/task-service.ts`
 - Modify: `packages/core/src/services/project-service.ts`
 - Modify: `packages/core/src/services/time-service.ts`
 - Create: `packages/core/src/services/emit-integration.test.ts`
 
 **Interfaces:**
+
 - Consumes: `emit` (Task 1); existing service methods.
 - Produces — events published on each mutation (payload in parentheses):
   - `task.created` (`{ title }`), `task.updated` (`{ patch }`), `task.status_changed` (`{ from, to }`), `task.completed` (`{}`), `task.deleted` (`{}`)
@@ -375,11 +405,13 @@ git commit -m "feat(core): emit domain events from task/project/time mutations"
 Persist the event stream into `activityLog` and expose a query API. Deliverable #3 (core half).
 
 **Files:**
+
 - Create: `packages/core/src/services/activity-service.ts`
 - Create: `packages/core/src/services/activity-service.test.ts`
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `events` bus (Task 1), the `activityLog` table, `DomainEvent`.
 - Produces:
   - `activityService.record(db: Db, event: DomainEvent): ActivityEntry` — inserts one row (`createdAt = new Date(event.at)`).
@@ -542,6 +574,7 @@ git commit -m "feat(core): persist domain events to activity log"
 ## Task 4: Activity log — REST endpoint + web timeline
 
 **Files:**
+
 - Create: `apps/api/src/routes/activity.ts`
 - Create: `apps/api/src/routes/activity.test.ts`
 - Modify: `apps/api/src/app.ts` (mount route + `startActivityLog(db)`)
@@ -551,6 +584,7 @@ git commit -m "feat(core): persist domain events to activity log"
 - Modify: task-detail view to render `<ActivityTimeline taskId=... />`
 
 **Interfaces:**
+
 - Consumes: `activityService`, `startActivityLog`.
 - Produces:
   - REST `GET /activity?entity=<type>:<id>` (e.g. `?entity=task:abc`) and/or `?entityType=&entityId=&limit=` → `200 { activity: ActivityEntry[] }`.
@@ -592,7 +626,11 @@ describe('GET /activity', () => {
     const res = await app.request(`/activity?entity=task:${task.id}`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.activity[0]).toMatchObject({ entityType: 'task', entityId: task.id, action: 'created' });
+    expect(body.activity[0]).toMatchObject({
+      entityType: 'task',
+      entityId: task.id,
+      action: 'created',
+    });
   });
 
   it('400s on a malformed entity param', async () => {
@@ -631,7 +669,11 @@ const querySchema = z
   .transform((q) => {
     if (q.entity) {
       const [entityType, entityId] = q.entity.split(/:(.+)/) as [string, string];
-      return { entityType: entityType as 'task' | 'project' | 'time_entry', entityId, limit: q.limit };
+      return {
+        entityType: entityType as 'task' | 'project' | 'time_entry',
+        entityId,
+        limit: q.limit,
+      };
     }
     return { entityType: q.entityType, entityId: q.entityId, limit: q.limit };
   });
@@ -682,7 +724,9 @@ export function useActivity(taskId: string) {
   return useQuery({
     queryKey: ['activity', 'task', taskId],
     queryFn: () =>
-      apiFetch<{ activity: ActivityEntry[] }>(`/activity?entity=task:${taskId}`).then((r) => r.activity),
+      apiFetch<{ activity: ActivityEntry[] }>(`/activity?entity=task:${taskId}`).then(
+        (r) => r.activity,
+      ),
     enabled: Boolean(taskId),
   });
 }
@@ -699,16 +743,31 @@ import { ActivityTimeline } from './activity-timeline';
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          activity: [
-            { id: '1', entityType: 'task', entityId: 't', action: 'status_changed', payload: { to: 'done' }, createdAt: '2026-07-08T12:00:00.000Z' },
-            { id: '2', entityType: 'task', entityId: 't', action: 'created', payload: { title: 'X' }, createdAt: '2026-07-08T11:00:00.000Z' },
-          ],
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            activity: [
+              {
+                id: '1',
+                entityType: 'task',
+                entityId: 't',
+                action: 'status_changed',
+                payload: { to: 'done' },
+                createdAt: '2026-07-08T12:00:00.000Z',
+              },
+              {
+                id: '2',
+                entityType: 'task',
+                entityId: 't',
+                action: 'created',
+                payload: { title: 'X' },
+                createdAt: '2026-07-08T11:00:00.000Z',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
     ),
   );
 });
@@ -790,6 +849,7 @@ git commit -m "feat(activity): GET /activity endpoint + task-detail timeline"
 ## Task 5: SSE live sync — REST `/events` + web subscription
 
 **Files:**
+
 - Create: `apps/api/src/routes/events.ts`
 - Create: `apps/api/src/routes/events.test.ts`
 - Modify: `apps/api/src/app.ts` (mount)
@@ -798,6 +858,7 @@ git commit -m "feat(activity): GET /activity endpoint + task-detail timeline"
 - Modify: `apps/web/src/app/providers.tsx` (mount `<LiveSync/>`)
 
 **Interfaces:**
+
 - Consumes: `events` bus.
 - Produces:
   - REST `GET /events` — `text/event-stream`. Each `DomainEvent` is written as one SSE message: `data: {"type":"task.updated","entityType":"task","entityId":"…","action":"updated","at":123}`. A comment heartbeat (`: ping`) is sent every 15s. The subscription is torn down on client disconnect.
@@ -883,7 +944,11 @@ eventsRoute.get('/events', (c) =>
         }
         const event = queue.shift();
         if (event) {
-          await stream.writeSSE({ data: JSON.stringify(event), event: 'change', id: `${event.at}` });
+          await stream.writeSSE({
+            data: JSON.stringify(event),
+            event: 'change',
+            id: `${event.at}`,
+          });
         }
       }
     } finally {
@@ -930,7 +995,13 @@ describe('useLiveSync', () => {
       wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
     });
     FakeEventSource.last!.onmessage!({
-      data: JSON.stringify({ type: 'task.updated', entityType: 'task', entityId: 't1', action: 'updated', at: 1 }),
+      data: JSON.stringify({
+        type: 'task.updated',
+        entityType: 'task',
+        entityId: 't1',
+        action: 'updated',
+        at: 1,
+      }),
     });
     expect(spy).toHaveBeenCalledWith({ queryKey: ['tasks'] });
     expect(spy).toHaveBeenCalledWith({ queryKey: ['task', 't1'] });
@@ -1022,6 +1093,7 @@ git commit -m "feat(sync): SSE /events stream + web live query invalidation"
 ## Task 6: Saved filters — core service + REST + web
 
 **Files:**
+
 - Create: `packages/core/src/services/saved-filter-service.ts`
 - Create: `packages/core/src/services/saved-filter-service.test.ts`
 - Modify: `packages/core/src/index.ts`
@@ -1033,6 +1105,7 @@ git commit -m "feat(sync): SSE /events stream + web live query invalidation"
 - Modify: `apps/web/src/lib/queries.ts`
 
 **Interfaces:**
+
 - Consumes: `savedFilters` table, error classes.
 - Produces:
   - `savedFilterService.create(db, input: CreateSavedFilterInput, now?: Date): SavedFilterRecord`
@@ -1063,7 +1136,11 @@ function db() {
 describe('savedFilterService', () => {
   it('creates, lists, gets, updates and deletes a filter', () => {
     const d = db();
-    const created = savedFilterService.create(d, { name: 'Overdue P0', query: { priorities: ['p0'], due: 'overdue' } }, now);
+    const created = savedFilterService.create(
+      d,
+      { name: 'Overdue P0', query: { priorities: ['p0'], due: 'overdue' } },
+      now,
+    );
     expect(created.id).toMatch(/[0-9a-f-]{36}/);
     expect(created.query).toEqual({ priorities: ['p0'], due: 'overdue' });
 
@@ -1177,7 +1254,12 @@ export const savedFilterService = {
     return toRecord(row);
   },
 
-  update(db: Db, id: string, input: UpdateSavedFilterInput, now: Date = new Date()): SavedFilterRecord {
+  update(
+    db: Db,
+    id: string,
+    input: UpdateSavedFilterInput,
+    now: Date = new Date(),
+  ): SavedFilterRecord {
     const data = parse(updateSavedFilterSchema, input);
     savedFilterService.get(db, id); // throws NotFoundError if absent
     const [row] = db
@@ -1277,7 +1359,9 @@ function buildRoutes(getDb: (c: { get: (k: 'db') => Db }) => Db) {
   );
 
   app.patch('/saved-filters/:id', zValidator('json', updateSavedFilterSchema), (c) =>
-    c.json({ savedFilter: savedFilterService.update(getDb(c), c.req.param('id'), c.req.valid('json')) }),
+    c.json({
+      savedFilter: savedFilterService.update(getDb(c), c.req.param('id'), c.req.valid('json')),
+    }),
   );
 
   app.delete('/saved-filters/:id', (c) => {
@@ -1318,7 +1402,8 @@ export interface SavedFilter {
 export function useSavedFilters() {
   return useQuery({
     queryKey: ['saved-filters'],
-    queryFn: () => apiFetch<{ savedFilters: SavedFilter[] }>('/saved-filters').then((r) => r.savedFilters),
+    queryFn: () =>
+      apiFetch<{ savedFilters: SavedFilter[] }>('/saved-filters').then((r) => r.savedFilters),
   });
 }
 
@@ -1354,11 +1439,19 @@ import { SavedFiltersMenu } from './saved-filters-menu';
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () =>
-      new Response(JSON.stringify({ savedFilters: [{ id: 's1', name: 'Today', query: { due: 'today' }, createdAt: '', updatedAt: '' }] }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            savedFilters: [
+              { id: 's1', name: 'Today', query: { due: 'today' }, createdAt: '', updatedAt: '' },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
     ),
   );
 });
@@ -1406,7 +1499,11 @@ export function SavedFiltersMenu({
             <Button variant="ghost" size="sm" onClick={() => onApply(f.query)}>
               {f.name}
             </Button>
-            <button aria-label={`Delete ${f.name}`} onClick={() => remove.mutate(f.id)} className="text-muted-foreground">
+            <button
+              aria-label={`Delete ${f.name}`}
+              onClick={() => remove.mutate(f.id)}
+              className="text-muted-foreground"
+            >
               ×
             </button>
           </span>
@@ -1455,6 +1552,7 @@ git commit -m "feat(saved-filters): service, REST CRUD, and web save/apply/delet
 ## Task 7: Bulk actions — core + REST + web
 
 **Files:**
+
 - Modify: `packages/core/src/services/task-service.ts` (add `bulkUpdate`, `bulkDelete`)
 - Create: `packages/core/src/services/task-bulk.test.ts`
 - Modify: `apps/api/src/routes/tasks.ts` (add `PATCH /tasks/bulk`, `POST /tasks/bulk-delete`)
@@ -1464,6 +1562,7 @@ git commit -m "feat(saved-filters): service, REST CRUD, and web save/apply/delet
 - Modify: `apps/web/src/lib/queries.ts`
 
 **Interfaces:**
+
 - Consumes: `tasks`, `taskTags` tables; `emit`; error classes.
 - Produces:
   - `taskService.bulkUpdate(db, ids: string[], patch: BulkPatch): Task[]` where
@@ -1513,7 +1612,9 @@ describe('taskService.bulkUpdate / bulkDelete', () => {
     const { db } = createDb(':memory:');
     runMigrations(db);
     const a = taskService.create(db, { title: 'A' });
-    expect(() => taskService.bulkUpdate(db, [a.id, 'ghost'], { status: 'todo' })).toThrow(NotFoundError);
+    expect(() => taskService.bulkUpdate(db, [a.id, 'ghost'], { status: 'todo' })).toThrow(
+      NotFoundError,
+    );
     expect(() => taskService.bulkUpdate(db, [], { status: 'todo' })).toThrow(ValidationError);
   });
 });
@@ -1683,7 +1784,10 @@ export function useBulkUpdateTasks() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: { ids: string[]; patch: Record<string, unknown> }) =>
-      apiFetch<{ tasks: unknown[] }>('/tasks/bulk', { method: 'PATCH', body: JSON.stringify(body) }),
+      apiFetch<{ tasks: unknown[] }>('/tasks/bulk', {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
 }
@@ -1692,7 +1796,10 @@ export function useBulkDeleteTasks() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: string[]) =>
-      apiFetch<{ deleted: number }>('/tasks/bulk-delete', { method: 'POST', body: JSON.stringify({ ids }) }),
+      apiFetch<{ deleted: number }>('/tasks/bulk-delete', {
+        method: 'POST',
+        body: JSON.stringify({ ids }),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
 }
@@ -1722,7 +1829,9 @@ beforeEach(() => {
 });
 
 function wrap(ui: React.ReactNode) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 }
 
@@ -1731,7 +1840,9 @@ describe('BulkActionToolbar', () => {
     wrap(<BulkActionToolbar selectedIds={['a', 'b']} onDone={() => {}} />);
     expect(screen.getByText(/2 selected/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /delete/i }));
-    await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/tasks/bulk-delete'))).toBe(true));
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.url.includes('/tasks/bulk-delete'))).toBe(true),
+    );
     expect(calls.find((c) => c.url.includes('bulk-delete'))!.body).toEqual({ ids: ['a', 'b'] });
   });
 
@@ -1739,7 +1850,10 @@ describe('BulkActionToolbar', () => {
     wrap(<BulkActionToolbar selectedIds={['a']} onDone={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: /mark done/i }));
     await vi.waitFor(() => expect(calls.some((c) => c.url.includes('/tasks/bulk'))).toBe(true));
-    expect(calls.find((c) => c.url.endsWith('/tasks/bulk'))!.body).toEqual({ ids: ['a'], patch: { status: 'done' } });
+    expect(calls.find((c) => c.url.endsWith('/tasks/bulk'))!.body).toEqual({
+      ids: ['a'],
+      patch: { status: 'done' },
+    });
   });
 });
 ```
@@ -1751,12 +1865,19 @@ describe('BulkActionToolbar', () => {
 import { useBulkUpdateTasks, useBulkDeleteTasks } from '@/lib/queries';
 import { Button } from '@/components/ui/button';
 
-export function BulkActionToolbar({ selectedIds, onDone }: { selectedIds: string[]; onDone: () => void }) {
+export function BulkActionToolbar({
+  selectedIds,
+  onDone,
+}: {
+  selectedIds: string[];
+  onDone: () => void;
+}) {
   const update = useBulkUpdateTasks();
   const remove = useBulkDeleteTasks();
   if (selectedIds.length === 0) return null;
 
-  const patch = (p: Record<string, unknown>) => update.mutate({ ids: selectedIds, patch: p }, { onSuccess: onDone });
+  const patch = (p: Record<string, unknown>) =>
+    update.mutate({ ids: selectedIds, patch: p }, { onSuccess: onDone });
 
   return (
     <div
@@ -1804,6 +1925,7 @@ git commit -m "feat(bulk): bulkUpdate/bulkDelete service, REST, and multi-select
 ## Task 8: Attachments — core + REST + web
 
 **Files:**
+
 - Create: `packages/core/src/services/attachment-service.ts`
 - Create: `packages/core/src/services/attachment-service.test.ts`
 - Modify: `packages/core/src/index.ts`
@@ -1815,6 +1937,7 @@ git commit -m "feat(bulk): bulkUpdate/bulkDelete service, REST, and multi-select
 - Modify: `apps/web/src/lib/queries.ts`
 
 **Interfaces:**
+
 - Consumes: `attachments`, `tasks` tables; `NotFoundError`, `ValidationError`; Node `fs`.
 - Produces:
   - `attachmentService.add(db, input: AddAttachmentInput, opts?: { filesDir?: string }): Promise<AttachmentRecord>` — validates size/mime, writes the file to `<filesDir>/<taskId>/<uuid><ext>`, inserts the row. Throws `NotFoundError` (unknown task), `ValidationError` (too big / disallowed type).
@@ -1857,7 +1980,12 @@ describe('attachmentService', () => {
 
     const rec = await attachmentService.add(
       db,
-      { taskId: task.id, filename: 'note.txt', mime: 'text/plain', data: new TextEncoder().encode('hello') },
+      {
+        taskId: task.id,
+        filename: 'note.txt',
+        mime: 'text/plain',
+        data: new TextEncoder().encode('hello'),
+      },
       { filesDir: fdir },
     );
     expect(rec.size).toBe(5);
@@ -1873,7 +2001,16 @@ describe('attachmentService', () => {
     const fdir = await filesDir();
     const task = taskService.create(db, { title: 'T' });
     await expect(
-      attachmentService.add(db, { taskId: task.id, filename: 'a.exe', mime: 'application/x-msdownload', data: new Uint8Array(1) }, { filesDir: fdir }),
+      attachmentService.add(
+        db,
+        {
+          taskId: task.id,
+          filename: 'a.exe',
+          mime: 'application/x-msdownload',
+          data: new Uint8Array(1),
+        },
+        { filesDir: fdir },
+      ),
     ).rejects.toThrow(ValidationError);
   });
 
@@ -1882,7 +2019,11 @@ describe('attachmentService', () => {
     runMigrations(db);
     const fdir = await filesDir();
     await expect(
-      attachmentService.add(db, { taskId: 'ghost', filename: 'a.txt', mime: 'text/plain', data: new Uint8Array(1) }, { filesDir: fdir }),
+      attachmentService.add(
+        db,
+        { taskId: 'ghost', filename: 'a.txt', mime: 'text/plain', data: new Uint8Array(1) },
+        { filesDir: fdir },
+      ),
     ).rejects.toThrow(NotFoundError);
   });
 
@@ -1891,7 +2032,11 @@ describe('attachmentService', () => {
     runMigrations(db);
     const fdir = await filesDir();
     const task = taskService.create(db, { title: 'T' });
-    const rec = await attachmentService.add(db, { taskId: task.id, filename: 'x.txt', mime: 'text/plain', data: new Uint8Array([1]) }, { filesDir: fdir });
+    const rec = await attachmentService.add(
+      db,
+      { taskId: task.id, filename: 'x.txt', mime: 'text/plain', data: new Uint8Array([1]) },
+      { filesDir: fdir },
+    );
     await attachmentService.remove(db, rec.id, { filesDir: fdir });
     expect(attachmentService.list(db, task.id)).toHaveLength(0);
   });
@@ -1963,7 +2108,11 @@ function sanitize(filename: string): string {
 }
 
 export const attachmentService = {
-  async add(db: Db, input: AddAttachmentInput, opts: { filesDir?: string } = {}): Promise<AttachmentRecord> {
+  async add(
+    db: Db,
+    input: AddAttachmentInput,
+    opts: { filesDir?: string } = {},
+  ): Promise<AttachmentRecord> {
     const filesDir = opts.filesDir ?? DEFAULT_FILES_DIR;
     if (input.data.byteLength > MAX_ATTACHMENT_BYTES) {
       throw new ValidationError(`File exceeds ${MAX_ATTACHMENT_BYTES} bytes`);
@@ -1999,7 +2148,11 @@ export const attachmentService = {
     return db.select().from(attachments).where(eq(attachments.taskId, taskId)).all().map(toRecord);
   },
 
-  get(db: Db, id: string, opts: { filesDir?: string } = {}): { record: AttachmentRecord; absolutePath: string } {
+  get(
+    db: Db,
+    id: string,
+    opts: { filesDir?: string } = {},
+  ): { record: AttachmentRecord; absolutePath: string } {
     const filesDir = opts.filesDir ?? DEFAULT_FILES_DIR;
     const row = db.select().from(attachments).where(eq(attachments.id, id)).get();
     if (!row) throw new NotFoundError(`Attachment ${id} not found`);
@@ -2093,7 +2246,12 @@ function buildRoutes(getDb: (c: { get: (k: 'db') => Db }) => Db, filesDir: strin
     const data = new Uint8Array(await file.arrayBuffer());
     const attachment = await attachmentService.add(
       getDb(c),
-      { taskId: c.req.param('id'), filename: file.name, mime: file.type || 'application/octet-stream', data },
+      {
+        taskId: c.req.param('id'),
+        filename: file.name,
+        mime: file.type || 'application/octet-stream',
+        data,
+      },
       { filesDir },
     );
     return c.json({ attachment }, 201);
@@ -2104,7 +2262,9 @@ function buildRoutes(getDb: (c: { get: (k: 'db') => Db }) => Db, filesDir: strin
   );
 
   app.get('/attachments/:id', async (c) => {
-    const { record, absolutePath } = attachmentService.get(getDb(c), c.req.param('id'), { filesDir });
+    const { record, absolutePath } = attachmentService.get(getDb(c), c.req.param('id'), {
+      filesDir,
+    });
     const { readFile } = await import('node:fs/promises');
     const bytes = await readFile(absolutePath);
     c.header('Content-Type', record.mime ?? 'application/octet-stream');
@@ -2152,7 +2312,10 @@ export interface Attachment {
 export function useAttachments(taskId: string) {
   return useQuery({
     queryKey: ['attachments', taskId],
-    queryFn: () => apiFetch<{ attachments: Attachment[] }>(`/tasks/${taskId}/attachments`).then((r) => r.attachments),
+    queryFn: () =>
+      apiFetch<{ attachments: Attachment[] }>(`/tasks/${taskId}/attachments`).then(
+        (r) => r.attachments,
+      ),
     enabled: Boolean(taskId),
   });
 }
@@ -2163,7 +2326,10 @@ export function useUploadAttachment(taskId: string) {
     mutationFn: async (file: File) => {
       const form = new FormData();
       form.append('file', file);
-      const res = await fetch(apiUrl(`/tasks/${taskId}/attachments`), { method: 'POST', body: form });
+      const res = await fetch(apiUrl(`/tasks/${taskId}/attachments`), {
+        method: 'POST',
+        body: form,
+      });
       if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
       return (await res.json()) as { attachment: Attachment };
     },
@@ -2191,11 +2357,24 @@ import { AttachmentsPanel } from './attachments-panel';
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () =>
-      new Response(
-        JSON.stringify({ attachments: [{ id: 'a1', taskId: 't', filename: 'note.txt', path: '', mime: 'text/plain', size: 5, createdAt: '' }] }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            attachments: [
+              {
+                id: 'a1',
+                taskId: 't',
+                filename: 'note.txt',
+                path: '',
+                mime: 'text/plain',
+                size: 5,
+                createdAt: '',
+              },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
     ),
   );
 });
@@ -2240,11 +2419,20 @@ export function AttachmentsPanel({ taskId }: { taskId: string }) {
       <ul className="space-y-1">
         {data.map((a) => (
           <li key={a.id} className="flex items-center gap-2 text-sm">
-            <a className="underline" href={apiUrl(`/attachments/${a.id}`)} target="_blank" rel="noreferrer">
+            <a
+              className="underline"
+              href={apiUrl(`/attachments/${a.id}`)}
+              target="_blank"
+              rel="noreferrer"
+            >
               {a.filename}
             </a>
             <span className="text-xs text-muted-foreground">{humanSize(a.size)}</span>
-            <button aria-label={`Delete ${a.filename}`} className="ml-auto text-muted-foreground" onClick={() => remove.mutate(a.id)}>
+            <button
+              aria-label={`Delete ${a.filename}`}
+              className="ml-auto text-muted-foreground"
+              onClick={() => remove.mutate(a.id)}
+            >
               ×
             </button>
           </li>
@@ -2260,7 +2448,12 @@ export function AttachmentsPanel({ taskId }: { taskId: string }) {
           e.target.value = '';
         }}
       />
-      <Button size="sm" variant="secondary" disabled={upload.isPending} onClick={() => inputRef.current?.click()}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={upload.isPending}
+        onClick={() => inputRef.current?.click()}
+      >
         {upload.isPending ? 'Uploading…' : 'Add attachment'}
       </Button>
     </section>
@@ -2287,12 +2480,14 @@ git commit -m "feat(attachments): file service, multipart REST routes, and web p
 ## Task 9: Keyboard-shortcut cheatsheet (web)
 
 **Files:**
+
 - Create: `apps/web/src/hooks/use-keyboard-shortcuts.ts`
 - Create: `apps/web/src/components/shortcut-cheatsheet.tsx`
 - Create: `apps/web/src/components/shortcut-cheatsheet.test.tsx`
 - Modify: `apps/web/src/app/providers.tsx` (mount `<ShortcutCheatsheet/>`)
 
 **Interfaces:**
+
 - Consumes: shadcn `Dialog` primitive.
 - Produces:
   - `useShortcut(key: string, handler: () => void, opts?: { shift?: boolean })` — registers a global keydown handler that ignores events originating in inputs/textareas/contenteditable.
@@ -2344,7 +2539,11 @@ function isEditable(target: EventTarget | null): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable;
 }
 
-export function useShortcut(key: string, handler: () => void, opts: { shift?: boolean } = {}): void {
+export function useShortcut(
+  key: string,
+  handler: () => void,
+  opts: { shift?: boolean } = {},
+): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isEditable(e.target)) return;
@@ -2390,7 +2589,9 @@ export function ShortcutCheatsheet() {
           {SHORTCUTS.map((s) => (
             <div key={s.label} className="contents">
               <dt>
-                <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">{s.keys}</kbd>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  {s.keys}
+                </kbd>
               </dt>
               <dd className="text-muted-foreground">{s.label}</dd>
             </div>
@@ -2423,12 +2624,14 @@ git commit -m "feat(web): '?' keyboard-shortcut cheatsheet dialog"
 ## Task 10: Empty & onboarding states (web)
 
 **Files:**
+
 - Create: `apps/web/src/components/empty-state.tsx`
 - Create: `apps/web/src/components/onboarding.tsx`
 - Create: `apps/web/src/components/onboarding.test.tsx`
 - Modify: list/board view to render `<EmptyState>` / `<Onboarding>` when there are zero tasks and zero projects.
 
 **Interfaces:**
+
 - Consumes: `useTasks`, `useProjects` (existing hooks); `quick-add` / create actions.
 - Produces:
   - `<EmptyState title description action? />` — reusable illustration + call-to-action for any empty list.
@@ -2453,7 +2656,13 @@ describe('Onboarding & EmptyState', () => {
 
   it('EmptyState shows title, description, and an optional action', () => {
     const onClick = vi.fn();
-    render(<EmptyState title="No tasks" description="You're all caught up." action={{ label: 'New task', onClick }} />);
+    render(
+      <EmptyState
+        title="No tasks"
+        description="You're all caught up."
+        action={{ label: 'New task', onClick }}
+      />,
+    );
     expect(screen.getByText(/no tasks/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /new task/i }));
     expect(onClick).toHaveBeenCalled();
@@ -2481,7 +2690,11 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-      {icon ? <div className="text-4xl opacity-60" aria-hidden>{icon}</div> : null}
+      {icon ? (
+        <div className="text-4xl opacity-60" aria-hidden>
+          {icon}
+        </div>
+      ) : null}
       <h2 className="text-lg font-medium">{title}</h2>
       {description ? <p className="max-w-sm text-sm text-muted-foreground">{description}</p> : null}
       {action ? (
@@ -2500,7 +2713,13 @@ export function EmptyState({
 'use client';
 import { Button } from '@/components/ui/button';
 
-export function Onboarding({ onQuickAdd, onCreateSample }: { onQuickAdd: () => void; onCreateSample: () => void }) {
+export function Onboarding({
+  onQuickAdd,
+  onCreateSample,
+}: {
+  onQuickAdd: () => void;
+  onCreateSample: () => void;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
       <div className="text-5xl" aria-hidden>
@@ -2508,8 +2727,9 @@ export function Onboarding({ onQuickAdd, onCreateSample }: { onQuickAdd: () => v
       </div>
       <h1 className="text-2xl font-semibold">Welcome to justdoit</h1>
       <p className="max-w-md text-sm text-muted-foreground">
-        Capture tasks in plain language, organize with projects & tags, track time, and let your agent help.
-        Try typing <code className="rounded bg-muted px-1">buy milk tomorrow 5pm #errands p1</code>.
+        Capture tasks in plain language, organize with projects & tags, track time, and let your
+        agent help. Try typing{' '}
+        <code className="rounded bg-muted px-1">buy milk tomorrow 5pm #errands p1</code>.
       </p>
       <div className="flex gap-2">
         <Button onClick={onQuickAdd}>Add your first task</Button>
@@ -2530,7 +2750,14 @@ const { data: projects = [] } = useProjects();
 const firstRun = tasks.length === 0 && projects.length === 0;
 // ...
 if (firstRun) return <Onboarding onQuickAdd={focusQuickAdd} onCreateSample={createSampleProject} />;
-if (tasks.length === 0) return <EmptyState title="No tasks here" description="Nothing matches this view." action={{ label: 'New task', onClick: focusQuickAdd }} />;
+if (tasks.length === 0)
+  return (
+    <EmptyState
+      title="No tasks here"
+      description="Nothing matches this view."
+      action={{ label: 'New task', onClick: focusQuickAdd }}
+    />
+  );
 ```
 
 - [ ] **Step 5: Run the test to verify it passes**
@@ -2548,7 +2775,9 @@ test('first run shows onboarding and quick-add creates the first task', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /welcome to justdoit/i })).toBeVisible();
   await page.getByRole('button', { name: /add your first task/i }).click();
-  await page.getByRole('textbox', { name: /quick add/i }).fill('Write the launch post tomorrow #launch p1');
+  await page
+    .getByRole('textbox', { name: /quick add/i })
+    .fill('Write the launch post tomorrow #launch p1');
   await page.keyboard.press('Enter');
   await expect(page.getByText('Write the launch post')).toBeVisible();
 });
@@ -2596,13 +2825,13 @@ mkdir -p ./data/files                          # attachment storage
 
 **Environment variables**
 
-| Var | Surface | Default | Purpose |
-|---|---|---|---|
-| `JUSTDOIT_DB` | api, mcp | `justdoit.db` | SQLite file path |
-| `JUSTDOIT_FILES_DIR` | api | `./data/files` | Attachment storage dir |
-| `JUSTDOIT_API_PORT` | api | `8787` | REST/SSE server port |
-| `NEXT_PUBLIC_API_URL` | web | `http://localhost:8787` | REST base the web client + SSE point at |
-| `JUSTDOIT_API_KEY` | api, mcp | _unset_ | Optional `X-API-Key` gate (localhost off by default) |
+| Var                   | Surface  | Default                 | Purpose                                              |
+| --------------------- | -------- | ----------------------- | ---------------------------------------------------- |
+| `JUSTDOIT_DB`         | api, mcp | `justdoit.db`           | SQLite file path                                     |
+| `JUSTDOIT_FILES_DIR`  | api      | `./data/files`          | Attachment storage dir                               |
+| `JUSTDOIT_API_PORT`   | api      | `8787`                  | REST/SSE server port                                 |
+| `NEXT_PUBLIC_API_URL` | web      | `http://localhost:8787` | REST base the web client + SSE point at              |
+| `JUSTDOIT_API_KEY`    | api, mcp | _unset_                 | Optional `X-API-Key` gate (localhost off by default) |
 
 **Run all three surfaces (three terminals)**
 

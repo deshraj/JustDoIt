@@ -62,12 +62,14 @@ apps/api/
 ## Task 1: Recurrence utility (`rrule` wrapper)
 
 **Files:**
+
 - Modify: `packages/core/package.json` (add `rrule`)
 - Create: `packages/core/src/recurrence.ts`
 - Create: `packages/core/src/recurrence.test.ts`
 - Modify: `packages/core/src/index.ts` (re-export `./recurrence`)
 
 **Interfaces:**
+
 - Consumes: `rrule` package; `ValidationError` from `./errors`.
 - Produces:
   - `isValidRecurrence(rule: string): boolean` — true iff `rule` is a parseable RRULE line.
@@ -189,12 +191,14 @@ git commit -m "feat(core): add rrule recurrence utility (nextOccurrence + valida
 ## Task 2: Schedule schemas + `schedule-service` window validation & queries
 
 **Files:**
+
 - Create: `packages/core/src/schemas/schedule.ts`
 - Create: `packages/core/src/services/schedule-service.ts`
 - Create: `packages/core/src/services/schedule-service.test.ts`
 - Modify: `packages/core/src/index.ts` (re-export new modules)
 
 **Interfaces:**
+
 - Consumes: `Db` and the `tasks` table from `../db`; `ValidationError` from `../errors`; `Task` type.
 - Produces:
   - `dueFilterSchema = z.enum(['overdue', 'today', 'upcoming'])`; `type DueFilter`.
@@ -227,12 +231,7 @@ import { createDb, runMigrations } from '../db/client';
 import { tasks } from '../db/schema';
 import type { Db } from '../db/client';
 import { ValidationError } from '../errors';
-import {
-  assertValidWindow,
-  listOverdue,
-  listDueToday,
-  listUpcoming,
-} from './schedule-service';
+import { assertValidWindow, listOverdue, listDueToday, listUpcoming } from './schedule-service';
 
 function freshDb(): Db {
   const { db } = createDb(':memory:');
@@ -359,7 +358,11 @@ export function listDueToday(db: Db, now: Date): Task[] {
     .select()
     .from(tasks)
     .where(
-      and(gte(tasks.dueAt, startOfLocalDay(now)), lte(tasks.dueAt, endOfLocalDay(now)), activeAndDue()),
+      and(
+        gte(tasks.dueAt, startOfLocalDay(now)),
+        lte(tasks.dueAt, endOfLocalDay(now)),
+        activeAndDue(),
+      ),
     )
     .orderBy(asc(tasks.dueAt))
     .all();
@@ -409,10 +412,12 @@ git commit -m "feat(core): add schedule-service window validation and due-window
 ## Task 3: Wire due/start + recurrence validation into task create/update
 
 **Files:**
+
 - Modify: `packages/core/src/services/task-service.ts` (call validators in `taskService.create`/`taskService.update`)
 - Modify: `packages/core/src/services/task-service.test.ts` (add validation cases)
 
 **Interfaces:**
+
 - Consumes: `assertValidWindow` (Task 2), `assertValidRecurrence` (Task 1).
 - Produces: `taskService.create`/`taskService.update` now throw `ValidationError` when `startAt > dueAt`, or when a non-null `recurrence` string is unparseable. Signatures unchanged.
 
@@ -498,11 +503,13 @@ git commit -m "feat(core): validate due/start window and recurrence on task crea
 ## Task 4: Spawn next occurrence on complete
 
 **Files:**
+
 - Modify: `packages/core/src/services/schedule-service.ts` (add `spawnNextRecurrence`)
 - Modify: `packages/core/src/services/task-service.ts` (`complete` spawns next)
 - Modify: `packages/core/src/services/task-service.test.ts` (recurrence-on-complete cases)
 
 **Interfaces:**
+
 - Consumes: `nextOccurrence` (Task 1); `tasks` table.
 - Produces:
   - `spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null` — if `task.recurrence` is set and not exhausted, inserts a fresh task copying `title`, `description`, `priority`, `projectId`, `parentTaskId`, `position`, `estimateMinutes`, `recurrence`; sets `status: 'todo'`, `completedAt: null`; shifts `dueAt`/`startAt` forward by `nextOccurrence(recurrence, anchor) - anchor` where `anchor = task.dueAt ?? task.startAt ?? now`. Returns the new task or `null`.
@@ -531,7 +538,10 @@ it('spawns the next occurrence when completing a recurring task', () => {
 
 it('does not spawn for a non-recurring task', () => {
   const now = new Date('2026-03-02T10:00:00Z');
-  const task = taskService.create(db, { title: 'one-off', dueAt: new Date('2026-03-02T09:00:00Z') });
+  const task = taskService.create(db, {
+    title: 'one-off',
+    dueAt: new Date('2026-03-02T09:00:00Z'),
+  });
   taskService.complete(db, task.id, now);
   const open = taskService.list(db, { status: 'todo' });
   expect(open.find((t) => t.title === 'one-off')).toBeUndefined();
@@ -620,6 +630,7 @@ git commit -m "feat(core): spawn next occurrence when completing a recurring tas
 ## Task 5: Reminder schemas + `reminder-service`
 
 **Files:**
+
 - Modify: `packages/core/src/db/schema.ts` (export `Reminder`/`NewReminder` types)
 - Create: `packages/core/src/schemas/reminder.ts`
 - Create: `packages/core/src/services/reminder-service.ts`
@@ -627,6 +638,7 @@ git commit -m "feat(core): spawn next occurrence when completing a recurring tas
 - Modify: `packages/core/src/index.ts` (re-export new modules)
 
 **Interfaces:**
+
 - Consumes: `reminders` + `tasks` tables; `NotFoundError` from `../errors`.
 - Produces:
   - schema.ts: `export type Reminder = typeof reminders.$inferSelect;` `export type NewReminder = typeof reminders.$inferInsert;`
@@ -728,7 +740,9 @@ describe('reminder-service', () => {
   it('updates and deletes a reminder', () => {
     const taskId = makeTask(db);
     const r = reminderService.create(db, { taskId, remindAt: new Date('2026-04-01T09:00:00Z') });
-    const updated = reminderService.update(db, r.id, { remindAt: new Date('2026-04-05T09:00:00Z') });
+    const updated = reminderService.update(db, r.id, {
+      remindAt: new Date('2026-04-05T09:00:00Z'),
+    });
     expect(updated.remindAt.toISOString()).toBe('2026-04-05T09:00:00.000Z');
     reminderService.remove(db, r.id);
     expect(() => reminderService.get(db, r.id)).toThrow(NotFoundError);
@@ -739,7 +753,10 @@ describe('reminder-service', () => {
     const now = new Date('2026-04-10T12:00:00Z');
     const past = reminderService.create(db, { taskId, remindAt: new Date('2026-04-10T11:00:00Z') });
     reminderService.create(db, { taskId, remindAt: new Date('2026-04-10T13:00:00Z') }); // future
-    const alreadyDone = reminderService.create(db, { taskId, remindAt: new Date('2026-04-10T10:00:00Z') });
+    const alreadyDone = reminderService.create(db, {
+      taskId,
+      remindAt: new Date('2026-04-10T10:00:00Z'),
+    });
     reminderService.markDelivered(db, alreadyDone.id);
 
     const due = reminderService.dueReminders(db, now);
@@ -869,11 +886,13 @@ git commit -m "feat(core): add reminder-service (CRUD, dueReminders, markDeliver
 ## Task 6: REST reminder routes
 
 **Files:**
+
 - Create: `apps/api/src/routes/reminders.ts`
 - Create: `apps/api/src/routes/reminders.test.ts`
 - Modify: `apps/api/src/app.ts` (mount `/reminders`)
 
 **Interfaces:**
+
 - Consumes: `reminderService` (`create`/`list`/`update`/`remove`) + `createReminderBody`, `updateReminderBody` from `@justdoit/core`; the Phase 1 `AppEnv` (db on context) and error middleware (maps `NotFoundError`→404, `ValidationError`→400).
 - Produces (all JSON):
   - `GET /reminders` — optional `?taskId=&delivered=true|false` → `Reminder[]`.
@@ -1017,10 +1036,12 @@ git commit -m "feat(api): add /reminders REST routes"
 ## Task 7: `?due=` filter on the task-list route
 
 **Files:**
+
 - Modify: `apps/api/src/routes/tasks.ts` (add `due` query branch)
 - Modify: `apps/api/src/routes/tasks.test.ts` (due-filter cases)
 
 **Interfaces:**
+
 - Consumes: `listOverdue`, `listDueToday`, `listUpcoming`, `dueFilterSchema` from `@justdoit/core`.
 - Produces: `GET /tasks?due=overdue|today|upcoming[&days=N]` → `Task[]`. When `due` is present it short-circuits to the corresponding schedule query using server clock `new Date()`; `days` (default 7) applies only to `upcoming`. Absent `due` preserves the Phase 1 list behavior unchanged.
 
@@ -1100,12 +1121,14 @@ git commit -m "feat(api): add ?due=overdue|today|upcoming task-list filter"
 ## Task 8: Reminder scheduler (`node-cron` + injectable `node-notifier`)
 
 **Files:**
+
 - Modify: `apps/api/package.json` (add `node-cron`, `node-notifier`, `@types/node-cron`, `@types/node-notifier`)
 - Create: `apps/api/src/scheduler.ts`
 - Create: `apps/api/src/scheduler.test.ts`
 - Modify: `apps/api/src/index.ts` (start scheduler, guarded)
 
 **Interfaces:**
+
 - Consumes: `reminderService` (`dueReminders`/`markDelivered`), `taskService` (`get`), `Db` from `@justdoit/core`.
 - Produces:
   - `interface Notifier { notify(input: { title: string; message: string }): void }`.
@@ -1158,7 +1181,10 @@ describe('runReminderTick', () => {
     const { db, taskId } = setup();
     const now = new Date('2026-06-01T12:00:00Z');
     const due = reminderService.create(db, { taskId, remindAt: new Date('2026-06-01T11:00:00Z') });
-    const future = reminderService.create(db, { taskId, remindAt: new Date('2026-06-01T13:00:00Z') });
+    const future = reminderService.create(db, {
+      taskId,
+      remindAt: new Date('2026-06-01T13:00:00Z'),
+    });
     const notifier = new FakeNotifier();
 
     const count = runReminderTick(db, notifier, now);
@@ -1220,7 +1246,12 @@ export interface SchedulerOptions {
 }
 
 export function startReminderScheduler(opts: SchedulerOptions): ScheduledTask {
-  const { db, notifier: n = desktopNotifier, now = () => new Date(), schedule = '* * * * *' } = opts;
+  const {
+    db,
+    notifier: n = desktopNotifier,
+    now = () => new Date(),
+    schedule = '* * * * *',
+  } = opts;
   return cron.schedule(schedule, () => {
     runReminderTick(db, n, now());
   });

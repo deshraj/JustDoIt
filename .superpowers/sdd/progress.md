@@ -1,0 +1,18 @@
+# justdoit build — progress ledger
+
+Branch: build/justdoit-mvp
+Execution unit: per phase (see docs/superpowers/plans/). Gates run by controller: `pnpm test && pnpm typecheck && pnpm lint && pnpm format:check`.
+
+Parallelism: spine 0→1→2→3, then 4 ∥ 5, then 6.
+
+## Status
+
+- [ ] Phase 0 — Foundation
+- [ ] Phase 1 — Core + REST
+- [ ] Phase 2 — Time tracking
+- [ ] Phase 3 — Scheduling
+- [ ] Phase 4 — MCP server
+- [ ] Phase 5 — Web UI
+- [ ] Phase 6 — Polish
+
+## Log

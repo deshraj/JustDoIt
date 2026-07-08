@@ -58,24 +58,25 @@ justdoit/  (pnpm workspace + Turborepo)
 
 ### Stack
 
-| Concern | Choice |
-|---|---|
-| Language | TypeScript (strict) |
-| Monorepo | pnpm workspaces + Turborepo |
-| DB / ORM | SQLite (`better-sqlite3`) + Drizzle ORM + Drizzle Kit migrations |
-| Validation | Zod (schemas defined in `core`, shared everywhere) |
-| REST server | Hono |
-| MCP | `@modelcontextprotocol/sdk` (stdio + streamable-HTTP) |
-| UI | Next.js 15 App Router, React, Tailwind, shadcn/ui, TanStack Query |
-| Scheduler / notify | `node-cron` + `node-notifier` (in API process) |
-| Tests | Vitest (+ Playwright for UI e2e in Phase 5) |
-| Tooling | ESLint, Prettier, tsc, Turborepo pipelines |
+| Concern            | Choice                                                            |
+| ------------------ | ----------------------------------------------------------------- |
+| Language           | TypeScript (strict)                                               |
+| Monorepo           | pnpm workspaces + Turborepo                                       |
+| DB / ORM           | SQLite (`better-sqlite3`) + Drizzle ORM + Drizzle Kit migrations  |
+| Validation         | Zod (schemas defined in `core`, shared everywhere)                |
+| REST server        | Hono                                                              |
+| MCP                | `@modelcontextprotocol/sdk` (stdio + streamable-HTTP)             |
+| UI                 | Next.js 15 App Router, React, Tailwind, shadcn/ui, TanStack Query |
+| Scheduler / notify | `node-cron` + `node-notifier` (in API process)                    |
+| Tests              | Vitest (+ Playwright for UI e2e in Phase 5)                       |
+| Tooling            | ESLint, Prettier, tsc, Turborepo pipelines                        |
 
 ## 4. Data model
 
 All tables have `id` (uuid/text), `created_at`, `updated_at`.
 
 ### Task
+
 - `title` (string, required)
 - `description` (markdown text)
 - `status` — enum: `backlog | todo | in_progress | blocked | done | cancelled`
@@ -90,25 +91,32 @@ All tables have `id` (uuid/text), `created_at`, `updated_at`.
 - `archived` (bool)
 
 ### Project (list)
+
 - `name`, `color`, `icon`, `description`, `position`, `archived`
 
 ### Tag
+
 - `name`, `color`; many-to-many with Task via `task_tags`
 
 ### TimeEntry
+
 - `task_id`, `started_at`, `ended_at` (nullable while running),
   `duration_seconds` (derived/stored), `note`, `source` (`timer | manual`)
 
 ### Reminder
+
 - `task_id`, `remind_at`, `delivered` (bool)
 
 ### ActivityLog
+
 - `entity_type`, `entity_id`, `action`, `payload` (JSON), `created_at` — audit trail
 
 ### Attachment
+
 - `task_id`, `filename`, `path` (local), `mime`, `size`
 
 ### SavedFilter
+
 - `name`, `query` (JSON: filters/sort/grouping for a saved view)
 
 **Status lifecycle:** fixed enum in v1. `done`/`cancelled` set `completed_at`.

@@ -88,12 +88,14 @@ apps/web/
 ## Task 1: Scaffold apps/web + Tailwind + shadcn/ui + dark mode + Turbo wiring
 
 **Files:**
+
 - Create: `apps/web/package.json`, `next.config.ts`, `tsconfig.json`, `tailwind.config.ts`, `postcss.config.mjs`, `components.json`, `.env.local.example`
 - Create: `apps/web/src/app/layout.tsx`, `src/app/globals.css`, `src/app/page.tsx`
 - Create: `apps/web/src/components/providers.tsx`, `src/lib/utils.ts`
 - Modify: `turbo.json` (add `dev`, `build` tasks), root `.gitignore` (add `.next/`, `test-results/`, `playwright-report/`)
 
 **Interfaces:**
+
 - Consumes: the workspace + tooling from Phase 0; `NEXT_PUBLIC_API_URL` env.
 - Produces:
   - Runnable `@justdoit/web` Next 15 app (`pnpm --filter @justdoit/web dev`) serving a themed blank shell on `localhost:3000`.
@@ -117,10 +119,12 @@ apps/web/
 ## Task 2: Typed API client + Zod response schemas + TanStack Query setup
 
 **Files:**
+
 - Create: `apps/web/src/lib/api.ts`, `src/lib/schemas.ts`, `src/lib/query-keys.ts`
 - Create: `apps/web/src/lib/api.test.ts`, `apps/web/vitest.config.ts`, `apps/web/vitest.setup.ts`
 
 **Interfaces:**
+
 - Consumes: `NEXT_PUBLIC_API_URL`; the REST endpoints (Phases 1–3).
 - Produces:
   - `src/lib/api.ts` exporting an `api` object with every method listed in the File Structure header. Each wraps `fetch`, sets `Content-Type: application/json`, forwards an optional `X-API-Key` (from `NEXT_PUBLIC_API_KEY` if set), builds query strings from typed filter params, and throws a typed `ApiError { status, message, body }` on non-2xx.
@@ -140,6 +144,7 @@ apps/web/
 ## Task 3: App shell — minimal sidebar (projects) + top quick-add bar + theme toggle
 
 **Files:**
+
 - Create: `apps/web/src/components/app-shell.tsx`, `sidebar.tsx`, `theme-toggle.tsx`, `quick-add-bar.tsx` (input-only stub this task)
 - Create: `apps/web/src/hooks/use-projects.ts`
 - Create: `apps/web/src/app/tasks/page.tsx` (placeholder List route so the shell renders)
@@ -148,6 +153,7 @@ apps/web/
 - Modify: `src/app/layout.tsx` (mount `<AppShell>`)
 
 **Interfaces:**
+
 - Consumes: `api.listProjects`, `providers`.
 - Produces:
   - `AppShell`: responsive layout — left sidebar (fixed, collapsible on narrow), top bar with quick-add + theme toggle, main content region with generous gutters. Minimal chrome, near-borderless (uses `bg-muted` elevation).
@@ -168,6 +174,7 @@ apps/web/
 ## Task 4: List view — grouped, sortable, filterable
 
 **Files:**
+
 - Create: `apps/web/src/components/list-view.tsx`, `task-row.tsx`, `list-toolbar.tsx`
 - Create: `apps/web/src/hooks/use-tasks.ts` (`useTasks`, `useUpdateTask`, `useSetTaskStatus`, `useCompleteTask`)
 - Create shadcn primitives: `select`, `dropdown-menu`, `checkbox`, `badge`
@@ -175,6 +182,7 @@ apps/web/
 - Modify: `src/app/tasks/page.tsx` (render real List view; read `searchParams` for filters)
 
 **Interfaces:**
+
 - Consumes: `api.listTasks`, `api.setTaskStatus`, `api.completeTask`, `api.updateTask`, `api.listProjects`, `api.listTags`.
 - Produces:
   - `useTasks(filters)` query hook + mutation hooks that optimistically update and invalidate `qk.tasks.*`.
@@ -193,6 +201,7 @@ apps/web/
 ## Task 5: Task detail drawer — markdown, subtasks, tags, priority, dates, inline timer
 
 **Files:**
+
 - Create: `apps/web/src/components/task-detail.tsx`, `subtask-list.tsx`, `tag-picker.tsx`, `priority-picker.tsx`, `date-picker-field.tsx`, `markdown-editor.tsx`, `inline-timer.tsx`
 - Create: `apps/web/src/hooks/use-subtasks.ts`, `use-timer.ts`, `use-tags.ts`
 - Create shadcn primitives: `sheet` (drawer), `textarea`, `popover`, `calendar`, `tabs`
@@ -200,6 +209,7 @@ apps/web/
 - Create: `apps/web/src/components/inline-timer.test.tsx`, `task-detail.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.getTask`, `api.updateTask`, `api.listSubtasks`, `api.createSubtask`, `api.setTaskStatus`, `api.completeTask`, `api.listTags`, `api.createTag`, `api.startTimer`, `api.stopTimer`, `api.listTimeEntries`.
 - Produces:
   - `TaskDetail` rendered in a right-side `Sheet` via an **intercepting route** (`@modal/(.)[id]`) so opening from the list is a soft-nav overlay, with `/tasks/[id]` as a hard-refresh fallback (same component).
@@ -220,11 +230,13 @@ apps/web/
 ## Task 6: Kanban board — drag-drop across status columns (dnd-kit)
 
 **Files:**
+
 - Create: `apps/web/src/components/board-view.tsx`, `board-column.tsx`, `task-card.tsx`
 - Create: `apps/web/src/app/board/page.tsx`
 - Create: `apps/web/src/components/board-view.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.listTasks`, `api.setTaskStatus` (+ `api.updateTask` for intra-column `position`).
 - Produces:
   - `BoardView`: one `BoardColumn` per status in the fixed lifecycle order (`backlog → todo → in_progress → blocked → done → cancelled`), populated from a single `useTasks()` query bucketed client-side.
@@ -243,11 +255,13 @@ apps/web/
 ## Task 7: Calendar view — tasks by dueAt
 
 **Files:**
+
 - Create: `apps/web/src/components/calendar-view.tsx`, `calendar-day-cell.tsx`
 - Create: `apps/web/src/app/calendar/page.tsx`
 - Create: `apps/web/src/components/calendar-view.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.listTasks` (with a due-range filter: `dueFrom`/`dueTo` mapped to the REST due-range params).
 - Produces:
   - `CalendarView`: month grid (via `date-fns`), current month default, prev/next/today controls (also `[`/`]` keyboard). Each day cell lists tasks whose `dueAt` falls that day (compact chips: priority dot + truncated title); overflow shows "+N more". Clicking a chip opens the task detail drawer. Today is subtly highlighted (accent ring, not a fill).
@@ -264,11 +278,13 @@ apps/web/
 ## Task 8: Quick-add bar wired to POST /quick-add (natural language)
 
 **Files:**
+
 - Modify: `apps/web/src/components/quick-add-bar.tsx` (make functional)
 - Create: `apps/web/src/hooks/use-quick-add.ts`
 - Create: `apps/web/src/components/quick-add-bar.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.quickAdd(text)`.
 - Produces:
   - `useQuickAdd()` mutation: on submit, calls `api.quickAdd`, invalidates `qk.tasks.*` (list/board/calendar all reflect it), clears the input, and shows a toast with the parsed task title (and a subtle hint of parsed attributes: due/tags/priority).
@@ -286,12 +302,14 @@ apps/web/
 ## Task 9: Command palette (⌘K) with cmdk
 
 **Files:**
+
 - Create: `apps/web/src/components/command-palette.tsx`, `src/hooks/use-command-palette.ts`
 - Create shadcn primitive: `command` (cmdk wrapper)
 - Modify: `src/components/app-shell.tsx` (mount palette + global ⌘K listener)
 - Create: `apps/web/src/components/command-palette.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.listTasks`, `api.listProjects` (for navigate targets); `useTheme`; router; and cross-cutting actions (new task via quick-add focus, set-status on the open task, switch view).
 - Produces:
   - `CommandPalette` opened by `⌘K`/`Ctrl+K` (and a top-bar affordance). Groups: **Navigate** (go to task by fuzzy title, go to project, jump to List/Board/Calendar/Search/Analytics), **Actions** (New task, Set status of current task, Toggle theme, Switch view). cmdk provides fuzzy filtering; task/project lists come from cache (with a live search fallback for tasks).
@@ -308,11 +326,13 @@ apps/web/
 ## Task 10: Search UI wired to /search
 
 **Files:**
+
 - Create: `apps/web/src/app/search/page.tsx`, `src/components/search-view.tsx`
 - Create: `apps/web/src/hooks/use-search.ts`
 - Create: `apps/web/src/components/search-view.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.search(q)`.
 - Produces:
   - `/search` page with a prominent input (`q` synced to the URL `?q=`), debounced `useSearch(q)` query (`qk.search(q)`), results as task rows (reusing `TaskRow`) with the matched term subtly highlighted. Empty query shows a hint; no-results shows a calm empty state. Result rows open the detail drawer.
@@ -329,12 +349,14 @@ apps/web/
 ## Task 11: Analytics dashboard — time & throughput charts (dataviz skill)
 
 **Files:**
+
 - Create: `apps/web/src/app/analytics/page.tsx`, `src/components/analytics-dashboard.tsx`
 - Create: `apps/web/src/components/charts/` (`time-by-day-chart.tsx`, `time-by-project-chart.tsx`, `time-by-tag-chart.tsx`, `estimate-vs-actual-chart.tsx`, `throughput-chart.tsx`, `chart-theme.ts`)
 - Create: `apps/web/src/hooks/use-time-report.ts`
 - Create: `apps/web/src/components/analytics-dashboard.test.tsx`
 
 **Interfaces:**
+
 - Consumes: `api.getTimeReport({ groupBy: 'day'|'project'|'tag', from, to })`; `api.listTasks` (estimate vs actual, completed-per-day throughput).
 - Produces:
   - **Invoke the dataviz skill first** and derive `chart-theme.ts` (categorical palette + sequential ramp validated per the skill, legible in light & dark, `prefers-reduced-motion`-aware) — all charts import this single theme so the dashboard reads as one system.
@@ -357,10 +379,12 @@ apps/web/
 ## Task 12: Playwright e2e — critical flow (quick-add → list → drag to Done)
 
 **Files:**
+
 - Create: `apps/web/playwright.config.ts`, `apps/web/e2e/fixtures.ts`, `apps/web/e2e/critical-flow.spec.ts`
 - Modify: `apps/web/package.json` (`test:e2e` script if not already), `turbo.json` (optional `test:e2e` task, not in the default `test` pipeline)
 
 **Interfaces:**
+
 - Consumes: a REAL `apps/api` instance + the built `apps/web`.
 - Produces:
   - `playwright.config.ts` with a `webServer` block that (a) starts `apps/api` bound to a **temp/throwaway SQLite DB** (`JUSTDOIT_DB` env → a `mktemp` file or `:memory:`-backed file) on a test port, and (b) starts `apps/web` (`next start` after build, or `next dev`) with `NEXT_PUBLIC_API_URL` pointed at that api port. Deletes the temp DB in teardown.

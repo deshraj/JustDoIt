@@ -53,6 +53,7 @@ justdoit/
 ## Task 1: Monorepo scaffold & tooling
 
 **Files:**
+
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `turbo.json`
@@ -63,6 +64,7 @@ justdoit/
 - Create: `.gitignore`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: a working pnpm workspace with root scripts `pnpm typecheck` (→ `turbo typecheck`), `pnpm test` (→ `turbo test`), `pnpm lint` (→ `eslint .`), `pnpm format` / `pnpm format:check`. The `@justdoit/core` package (Task 2) plugs into `packages/*`. Root `pnpm.onlyBuiltDependencies` allows `better-sqlite3` to build.
 
@@ -214,6 +216,7 @@ git commit -m "chore: scaffold pnpm+turbo monorepo with tooling"
 ## Task 2: Core package skeleton & Drizzle schema
 
 **Files:**
+
 - Create: `packages/core/package.json`
 - Create: `packages/core/tsconfig.json`
 - Create: `packages/core/vitest.config.ts`
@@ -224,6 +227,7 @@ git commit -m "chore: scaffold pnpm+turbo monorepo with tooling"
 - Generated: `packages/core/drizzle/0000_*.sql` (+ `drizzle/meta/`)
 
 **Interfaces:**
+
 - Consumes: the workspace + tooling from Task 1.
 - Produces:
   - Package `@justdoit/core` resolvable in the workspace, entry `./src/index.ts`.
@@ -532,11 +536,13 @@ git commit -m "feat(core): add Drizzle schema and initial migration"
 ## Task 3: Database bootstrap (client + migration runner)
 
 **Files:**
+
 - Create: `packages/core/src/db/client.ts`
 - Create: `packages/core/src/db/client.test.ts`
 - Modify: `packages/core/src/db/index.ts` (add client export)
 
 **Interfaces:**
+
 - Consumes: `schema.ts` tables (`projects`, `tasks`) and the generated `drizzle/` migrations from Task 2.
 - Produces:
   - `type Db = BetterSQLite3Database<typeof schema>` — the typed Drizzle instance used by every later adapter (api, mcp).

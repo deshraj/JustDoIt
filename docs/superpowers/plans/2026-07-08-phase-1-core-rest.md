@@ -76,6 +76,7 @@ justdoit/
 ## Task 1: Core errors + Zod schemas
 
 **Files:**
+
 - Create: `packages/core/src/errors.ts`
 - Create: `packages/core/src/schemas/project.ts`
 - Create: `packages/core/src/schemas/tag.ts`
@@ -86,6 +87,7 @@ justdoit/
 - Modify: `packages/core/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `TASK_STATUSES`, `TASK_PRIORITIES` from `../db/schema` (Phase 0).
 - Produces:
   - `class NotFoundError extends Error` — `constructor(entity: string, id: string)`; `.name = 'NotFoundError'`.
@@ -328,11 +330,13 @@ git commit -m "feat(core): add domain errors and shared Zod schemas"
 ## Task 2: `projectService` (CRUD + list)
 
 **Files:**
+
 - Create: `packages/core/src/services/project-service.ts`
 - Create: `packages/core/src/services/project-service.test.ts`
 - Modify: `packages/core/src/services/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Db` (Phase 0), `projects` table, `NotFoundError`, `createProjectSchema` / `updateProjectSchema` and their inferred types.
 - Produces `projectService`:
   - `create(db: Db, input: CreateProjectInput): Project` — validates, assigns next `position`, returns the row.
@@ -445,8 +449,7 @@ export const projectService = {
   },
 
   list(db: Db, opts: { archived?: boolean } = {}): Project[] {
-    const where =
-      opts.archived === undefined ? undefined : eq(projects.archived, opts.archived);
+    const where = opts.archived === undefined ? undefined : eq(projects.archived, opts.archived);
     return db
       .select()
       .from(projects)
@@ -512,11 +515,13 @@ git commit -m "feat(core): add projectService (CRUD + list)"
 ## Task 3: `tagService` (CRUD + attach/detach)
 
 **Files:**
+
 - Create: `packages/core/src/services/tag-service.ts`
 - Create: `packages/core/src/services/tag-service.test.ts`
 - Modify: `packages/core/src/services/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Db`, `tags`/`taskTags`/`tasks` tables, `NotFoundError`/`ConflictError`, `createTagSchema`/`updateTagSchema`.
 - Produces `tagService`:
   - `create(db: Db, input: CreateTagInput): Tag` — unique `name`; duplicate → `ConflictError`.
@@ -710,23 +715,25 @@ git commit -m "feat(core): add tagService (CRUD + attach/detach)"
 ## Task 4: `taskService` (create/get/list+filters/update/setStatus/complete/remove/subtasks/ordering)
 
 **Files:**
+
 - Create: `packages/core/src/services/task-service.ts`
 - Create: `packages/core/src/services/task-service.test.ts`
 - Modify: `packages/core/src/services/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Db`, `tasks`/`taskTags`/`projects` tables, `TaskStatus`, `NotFoundError`/`ConflictError`, `createTaskSchema`/`updateTaskSchema`.
 - Produces `taskService` and `interface TaskListFilters`:
 
   ```ts
   export interface TaskListFilters {
     status?: TaskStatus;
-    projectId?: string | null;   // null → Inbox (project_id IS NULL)
+    projectId?: string | null; // null → Inbox (project_id IS NULL)
     tagId?: string;
     priority?: TaskPriority;
     parentTaskId?: string | null; // null → top-level only
     archived?: boolean;
-    search?: string;              // LIKE over title + description
+    search?: string; // LIKE over title + description
   }
   ```
 
@@ -954,7 +961,7 @@ export const taskService = {
         .where(eq(taskTags.tagId, filters.tagId))
         .all()
         .map((r) => r.id);
-      conditions.push(inArray(tasks.id, taskIds.length ? taskIds : [' __none__']));
+      conditions.push(inArray(tasks.id, taskIds.length ? taskIds : ['�__none__']));
     }
     return db
       .select()
@@ -1050,11 +1057,13 @@ git commit -m "feat(core): add taskService (CRUD, status lifecycle, subtasks, fi
 ## Task 5: `quickAddService` — natural-language quick-add parser
 
 **Files:**
+
 - Create: `packages/core/src/services/quick-add.ts`
 - Create: `packages/core/src/services/quick-add.test.ts`
 - Modify: `packages/core/src/services/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Db`, `projects`/`tags` tables, `projectService`/`tagService`/`taskService`, `ValidationError`, `TaskPriority`.
 - Produces:
 
@@ -1063,8 +1072,8 @@ git commit -m "feat(core): add taskService (CRUD, status lifecycle, subtasks, fi
     title: string;
     dueAt?: Date;
     priority?: TaskPriority;
-    tags: string[];        // names, from #token
-    projectName?: string;  // from @token
+    tags: string[]; // names, from #token
+    projectName?: string; // from @token
   }
   export function parseQuickAdd(text: string, now?: Date): QuickAddParsed;
   export const quickAddService: {
@@ -1290,7 +1299,9 @@ export const quickAddService = {
         .from(projects)
         .where(eq(projects.name, parsed.projectName))
         .get();
-      projectId = existing ? existing.id : projectService.create(db, { name: parsed.projectName }).id;
+      projectId = existing
+        ? existing.id
+        : projectService.create(db, { name: parsed.projectName }).id;
     }
 
     const task = taskService.create(db, {
@@ -1342,11 +1353,13 @@ git commit -m "feat(core): add natural-language quickAddService"
 ## Task 6: `exportService` — JSON snapshot import/export
 
 **Files:**
+
 - Create: `packages/core/src/services/export-service.ts`
 - Create: `packages/core/src/services/export-service.test.ts`
 - Modify: `packages/core/src/services/index.ts`
 
 **Interfaces:**
+
 - Consumes: `Db` and every table from `../db/schema`.
 - Produces:
 
@@ -1366,7 +1379,15 @@ git commit -m "feat(core): add natural-language quickAddService"
   }
   export interface ImportResult {
     counts: Record<
-      'projects' | 'tasks' | 'tags' | 'taskTags' | 'timeEntries' | 'reminders' | 'activityLog' | 'attachments' | 'savedFilters',
+      | 'projects'
+      | 'tasks'
+      | 'tags'
+      | 'taskTags'
+      | 'timeEntries'
+      | 'reminders'
+      | 'activityLog'
+      | 'attachments'
+      | 'savedFilters',
       number
     >;
   }
@@ -1670,6 +1691,7 @@ git commit -m "feat(core): add exportService (JSON snapshot import/export)"
 ## Task 7: Scaffold `@justdoit/api` (Hono app factory, error middleware, health)
 
 **Files:**
+
 - Create: `apps/api/package.json`
 - Create: `apps/api/tsconfig.json`
 - Create: `apps/api/vitest.config.ts`
@@ -1682,6 +1704,7 @@ git commit -m "feat(core): add exportService (JSON snapshot import/export)"
 - Modify: `package.json` (root)
 
 **Interfaces:**
+
 - Consumes: `@justdoit/core` (`createDb`, `runMigrations`, `Db`, errors).
 - Produces:
   - `createApp(db: Db): Hono` — the app factory used by tests and the bootstrap. Registers the error middleware and a `GET /health` route (`{ status: 'ok' }`); later tasks mount `/projects`, `/tags`, `/tasks`, `/search`, `/quick-add`, `/export`, `/import`.
@@ -1894,6 +1917,7 @@ git commit -m "feat(api): scaffold Hono app factory with error middleware and he
 ## Task 8: REST routes — projects + tags
 
 **Files:**
+
 - Create: `apps/api/src/routes/projects.ts`
 - Create: `apps/api/src/routes/tags.ts`
 - Create: `apps/api/src/routes/projects.test.ts`
@@ -1901,6 +1925,7 @@ git commit -m "feat(api): scaffold Hono app factory with error middleware and he
 - Modify: `apps/api/src/app.ts`
 
 **Interfaces:**
+
 - Consumes: `projectService`, `tagService`, `createProjectSchema`/`updateProjectSchema`, `createTagSchema`/`updateTagSchema`.
 - Produces:
   - `projectRoutes(db: Db): Hono` mounted at `/projects`:
@@ -2004,12 +2029,7 @@ Expected: FAIL — routes not mounted; `/projects` returns 404.
 ```ts
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import {
-  projectService,
-  createProjectSchema,
-  updateProjectSchema,
-  type Db,
-} from '@justdoit/core';
+import { projectService, createProjectSchema, updateProjectSchema, type Db } from '@justdoit/core';
 
 export function projectRoutes(db: Db): Hono {
   const r = new Hono();
@@ -2080,8 +2100,8 @@ import { tagRoutes } from './routes/tags';
 ```
 
 ```ts
-  app.route('/projects', projectRoutes(db));
-  app.route('/tags', tagRoutes(db));
+app.route('/projects', projectRoutes(db));
+app.route('/tags', tagRoutes(db));
 ```
 
 Remove the now-unnecessary `void db;` line.
@@ -2108,12 +2128,14 @@ git commit -m "feat(api): add /projects and /tags routes"
 ## Task 9: REST routes — tasks (+ status, complete, subtasks) and search
 
 **Files:**
+
 - Create: `apps/api/src/routes/tasks.ts`
 - Create: `apps/api/src/routes/search.ts`
 - Create: `apps/api/src/routes/tasks.test.ts`
 - Modify: `apps/api/src/app.ts`
 
 **Interfaces:**
+
 - Consumes: `taskService`, `TaskListFilters`, `createTaskSchema`/`updateTaskSchema`/`setStatusSchema`, `TaskStatus`/`TaskPriority`.
 - Produces:
   - `taskRoutes(db: Db): Hono` mounted at `/tasks`:
@@ -2312,8 +2334,8 @@ import { searchRoutes } from './routes/search';
 Mount (order: mount `/tasks` and the root-level `search`):
 
 ```ts
-  app.route('/tasks', taskRoutes(db));
-  app.route('/', searchRoutes(db));
+app.route('/tasks', taskRoutes(db));
+app.route('/', searchRoutes(db));
 ```
 
 - [ ] **Step 6: Run the test to verify it passes**
@@ -2338,12 +2360,14 @@ git commit -m "feat(api): add /tasks routes (status, complete, subtasks) and /se
 ## Task 10: REST routes — quick-add + export/import, and final gates
 
 **Files:**
+
 - Create: `apps/api/src/routes/quick-add.ts`
 - Create: `apps/api/src/routes/transfer.ts`
 - Create: `apps/api/src/routes/transfer.test.ts`
 - Modify: `apps/api/src/app.ts`
 
 **Interfaces:**
+
 - Consumes: `quickAddService`, `exportService`, `quickAddSchema`.
 - Produces:
   - `quickAddRoutes(db: Db): Hono` mounted at `/`:
@@ -2474,8 +2498,8 @@ import { transferRoutes } from './routes/transfer';
 Mount:
 
 ```ts
-  app.route('/', quickAddRoutes(db));
-  app.route('/', transferRoutes(db));
+app.route('/', quickAddRoutes(db));
+app.route('/', transferRoutes(db));
 ```
 
 The final `createApp` mounts, in order: `healthRoutes()`, `/projects`, `/tags`, `/tasks`, root `searchRoutes`, root `quickAddRoutes`, root `transferRoutes`.

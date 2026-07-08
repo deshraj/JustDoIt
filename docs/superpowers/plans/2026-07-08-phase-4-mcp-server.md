@@ -72,25 +72,25 @@ apps/mcp/
 
 All params are the tool's zod raw shape. "→ core" names the service call. Output is a single JSON `text` block unless noted.
 
-| Tool | Input params | → core |
-|---|---|---|
-| `create_task` | `title` (string, req), `description?`, `status?` (enum), `priority?` (enum), `projectId?`, `parentTaskId?`, `dueAt?` (ISO string→Date), `startAt?`, `estimateMinutes?`, `recurrence?` | `taskService.create(db, input)` |
-| `update_task` | `id` (req) + all `create_task` fields optional | `taskService.update(db, id, patch)` |
-| `list_tasks` | `status?`, `projectId?`, `priority?`, `tag?`, `parentTaskId?`, `dueBefore?`, `dueAfter?`, `archived?`, `limit?`, `sort?` | `taskService.list(db, filters)` |
-| `get_task` | `id` (req) | `taskService.get(db, id)` |
-| `set_status` | `id` (req), `status` (enum, req) | `taskService.setStatus(db, id, status)` |
-| `complete_task` | `id` (req) | `taskService.complete(db, id, now)` |
-| `delete_task` | `id` (req) | `taskService.remove(db, id)` |
-| `start_timer` | `taskId` (req) | `timeService.startTimer(db, taskId, now)` |
-| `stop_timer` | `taskId?` (defaults to running) | `timeService.stopTimer(db, { taskId }, now)` |
-| `log_time` | `taskId` (req), `minutes` (int, req), `startedAt?`, `note?` | `timeService.logManual(db, { taskId, startedAt, durationSeconds: minutes*60, note }, now)` (minutes→seconds) |
-| `create_project` | `name` (req), `color?`, `icon?`, `description?` | `projectService.create(db, input)` |
-| `list_projects` | `includeArchived?` | `projectService.list(db, opts)` |
-| `add_tag` | `taskId` (req), `name` (req), `color?` | `tagService.create` (upsert) + `tagService.attach(db, taskId, tagId)` |
-| `search_tasks` | `q` (string, req), `limit?` | `taskService.list(db, { q })` (full-text) |
-| `get_time_report` | `groupBy` (`day\|project\|tag`), `from?`, `to?` | `reportService.timeReport(db, opts)` |
-| `set_reminder` | `taskId` (req), `remindAt` (ISO, req) | `reminderService.create(db, input)` |
-| `quick_add` | `text` (string, req) | `quickAddService.create(db, text, now)` |
+| Tool              | Input params                                                                                                                                                                          | → core                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `create_task`     | `title` (string, req), `description?`, `status?` (enum), `priority?` (enum), `projectId?`, `parentTaskId?`, `dueAt?` (ISO string→Date), `startAt?`, `estimateMinutes?`, `recurrence?` | `taskService.create(db, input)`                                                                              |
+| `update_task`     | `id` (req) + all `create_task` fields optional                                                                                                                                        | `taskService.update(db, id, patch)`                                                                          |
+| `list_tasks`      | `status?`, `projectId?`, `priority?`, `tag?`, `parentTaskId?`, `dueBefore?`, `dueAfter?`, `archived?`, `limit?`, `sort?`                                                              | `taskService.list(db, filters)`                                                                              |
+| `get_task`        | `id` (req)                                                                                                                                                                            | `taskService.get(db, id)`                                                                                    |
+| `set_status`      | `id` (req), `status` (enum, req)                                                                                                                                                      | `taskService.setStatus(db, id, status)`                                                                      |
+| `complete_task`   | `id` (req)                                                                                                                                                                            | `taskService.complete(db, id, now)`                                                                          |
+| `delete_task`     | `id` (req)                                                                                                                                                                            | `taskService.remove(db, id)`                                                                                 |
+| `start_timer`     | `taskId` (req)                                                                                                                                                                        | `timeService.startTimer(db, taskId, now)`                                                                    |
+| `stop_timer`      | `taskId?` (defaults to running)                                                                                                                                                       | `timeService.stopTimer(db, { taskId }, now)`                                                                 |
+| `log_time`        | `taskId` (req), `minutes` (int, req), `startedAt?`, `note?`                                                                                                                           | `timeService.logManual(db, { taskId, startedAt, durationSeconds: minutes*60, note }, now)` (minutes→seconds) |
+| `create_project`  | `name` (req), `color?`, `icon?`, `description?`                                                                                                                                       | `projectService.create(db, input)`                                                                           |
+| `list_projects`   | `includeArchived?`                                                                                                                                                                    | `projectService.list(db, opts)`                                                                              |
+| `add_tag`         | `taskId` (req), `name` (req), `color?`                                                                                                                                                | `tagService.create` (upsert) + `tagService.attach(db, taskId, tagId)`                                        |
+| `search_tasks`    | `q` (string, req), `limit?`                                                                                                                                                           | `taskService.list(db, { q })` (full-text)                                                                    |
+| `get_time_report` | `groupBy` (`day\|project\|tag`), `from?`, `to?`                                                                                                                                       | `reportService.timeReport(db, opts)`                                                                         |
+| `set_reminder`    | `taskId` (req), `remindAt` (ISO, req)                                                                                                                                                 | `reminderService.create(db, input)`                                                                          |
+| `quick_add`       | `text` (string, req)                                                                                                                                                                  | `quickAddService.create(db, text, now)`                                                                      |
 
 **17 tools.** Resources: `task://{id}`, `project://{id}`, `tasks://today`, `tasks://overdue`. Prompts: `plan_my_day`, `summarize_progress`.
 
@@ -99,6 +99,7 @@ All params are the tool's zod raw shape. "→ core" names the service call. Outp
 ## Task 1: Scaffold `apps/mcp` + server factory + smoke test
 
 **Files:**
+
 - Create: `apps/mcp/package.json`
 - Create: `apps/mcp/tsconfig.json`
 - Create: `apps/mcp/vitest.config.ts`
@@ -109,6 +110,7 @@ All params are the tool's zod raw shape. "→ core" names the service call. Outp
 - Create: `apps/mcp/src/__tests__/task-tools.test.ts` (smoke test only in this task)
 
 **Interfaces:**
+
 - Consumes: `@justdoit/core` (`createDb`, `runMigrations`, type `Db`); the workspace/tooling from Phase 0.
 - Produces:
   - `createMcpServer(db: Db): McpServer` — constructs an `McpServer` named `justdoit`, calls `registerTools/registerResources/registerPrompts` (stubs wired incrementally), returns the server.
@@ -310,11 +312,13 @@ git commit -m "feat(mcp): scaffold @justdoit/mcp with createMcpServer factory"
 ## Task 2: Task write tools (create / update / set_status / complete / delete)
 
 **Files:**
+
 - Create: `apps/mcp/src/tools/tasks.ts`
 - Modify: `apps/mcp/src/tools/index.ts` (call `registerTaskTools`)
 - Modify: `apps/mcp/src/__tests__/task-tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `taskService.{create,update,setStatus,complete,remove}` from `@justdoit/core`; core Zod schemas `createTaskSchema`/`updateTaskSchema` (derive raw shape via `.shape`); `guard`/`ok` helpers; `TASK_STATUSES`, `TASK_PRIORITIES` enums from core.
 - Produces: registered tools `create_task`, `update_task`, `set_status`, `complete_task`, `delete_task`, each returning JSON of the affected task. `registerTaskTools(server, db)` exported and called from `registerTools`.
 
@@ -416,12 +420,7 @@ Expected: FAIL — `create_task` (and the rest) are unknown tools / rejected by 
 ```ts
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  taskService,
-  TASK_STATUSES,
-  TASK_PRIORITIES,
-  type Db,
-} from '@justdoit/core';
+import { taskService, TASK_STATUSES, TASK_PRIORITIES, type Db } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 // Coerce ISO date strings from agents into Date for date fields.
@@ -536,10 +535,12 @@ git commit -m "feat(mcp): add task write tools (create/update/set_status/complet
 ## Task 3: Task read tools (get / list / search)
 
 **Files:**
+
 - Modify: `apps/mcp/src/tools/tasks.ts` (add read tools)
 - Modify: `apps/mcp/src/__tests__/task-tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `taskService.{get,list}` from core (list accepts filter object incl. `status`, `projectId`, `priority`, `tag`, `parentTaskId`, `dueBefore`, `dueAfter`, `archived`, `limit`, `sort`, and free-text `q`).
 - Produces: tools `get_task`, `list_tasks`, `search_tasks`. `list_tasks`/`search_tasks` return a JSON array; `get_task` returns the task or `null`.
 
@@ -592,46 +593,46 @@ Expected: FAIL — `get_task`/`list_tasks`/`search_tasks` unknown.
 - [ ] **Step 3: Add read tools to `apps/mcp/src/tools/tasks.ts`** (inside `registerTaskTools`, after the write tools)
 
 ```ts
-  server.registerTool(
-    'get_task',
-    {
-      title: 'Get task',
-      description: 'Fetch a single task by id (null if not found).',
-      inputSchema: { id: z.string() },
-    },
-    ({ id }) => guard(() => taskService.get(db, id)),
-  );
+server.registerTool(
+  'get_task',
+  {
+    title: 'Get task',
+    description: 'Fetch a single task by id (null if not found).',
+    inputSchema: { id: z.string() },
+  },
+  ({ id }) => guard(() => taskService.get(db, id)),
+);
 
-  server.registerTool(
-    'list_tasks',
-    {
-      title: 'List tasks',
-      description: 'List tasks with optional filters.',
-      inputSchema: {
-        status: z.enum(TASK_STATUSES).optional(),
-        projectId: z.string().optional(),
-        priority: z.enum(TASK_PRIORITIES).optional(),
-        tag: z.string().optional(),
-        parentTaskId: z.string().optional(),
-        dueBefore: isoDate.optional(),
-        dueAfter: isoDate.optional(),
-        archived: z.boolean().optional(),
-        limit: z.number().int().positive().max(500).optional(),
-        sort: z.string().optional(),
-      },
+server.registerTool(
+  'list_tasks',
+  {
+    title: 'List tasks',
+    description: 'List tasks with optional filters.',
+    inputSchema: {
+      status: z.enum(TASK_STATUSES).optional(),
+      projectId: z.string().optional(),
+      priority: z.enum(TASK_PRIORITIES).optional(),
+      tag: z.string().optional(),
+      parentTaskId: z.string().optional(),
+      dueBefore: isoDate.optional(),
+      dueAfter: isoDate.optional(),
+      archived: z.boolean().optional(),
+      limit: z.number().int().positive().max(500).optional(),
+      sort: z.string().optional(),
     },
-    (filters) => guard(() => taskService.list(db, filters)),
-  );
+  },
+  (filters) => guard(() => taskService.list(db, filters)),
+);
 
-  server.registerTool(
-    'search_tasks',
-    {
-      title: 'Search tasks',
-      description: 'Full-text search over task title/description/notes.',
-      inputSchema: { q: z.string().min(1), limit: z.number().int().positive().optional() },
-    },
-    ({ q, limit }) => guard(() => taskService.list(db, { q, limit })),
-  );
+server.registerTool(
+  'search_tasks',
+  {
+    title: 'Search tasks',
+    description: 'Full-text search over task title/description/notes.',
+    inputSchema: { q: z.string().min(1), limit: z.number().int().positive().optional() },
+  },
+  ({ q, limit }) => guard(() => taskService.list(db, { q, limit })),
+);
 ```
 
 > NOTE: `search_tasks` reuses `taskService.list(db, { q })`. If core exposes a dedicated `taskService.search`, call that instead and NOTE it.
@@ -658,11 +659,13 @@ git commit -m "feat(mcp): add task read tools (get/list/search)"
 ## Task 4: Project & tag tools
 
 **Files:**
+
 - Create: `apps/mcp/src/tools/projects.ts`
 - Modify: `apps/mcp/src/tools/index.ts`
 - Create: `apps/mcp/src/__tests__/project-tag-tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `projectService.{create,list}`, `tagService.{create,attach}` (tag create is an upsert-by-name or returns existing; if not, adapter looks up via `tagService.list` first — NOTE the chosen approach).
 - Produces: tools `create_project`, `list_projects`, `add_tag`. `add_tag` ensures the tag exists then attaches it to the task, returning `{ task, tag }` or the updated task.
 
@@ -681,9 +684,9 @@ describe('project tools', () => {
     ) as { id: string; name: string };
     expect(proj.name).toBe('Work');
 
-    const list = firstJson(
-      await client.callTool({ name: 'list_projects', arguments: {} }),
-    ) as { id: string }[];
+    const list = firstJson(await client.callTool({ name: 'list_projects', arguments: {} })) as {
+      id: string;
+    }[];
     expect(list.some((p) => p.id === proj.id)).toBe(true);
   });
 });
@@ -779,7 +782,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
 ```ts
 import { registerProjectTools } from './projects.js';
 // ...inside registerTools:
-  registerProjectTools(server, db);
+registerProjectTools(server, db);
 ```
 
 - [ ] **Step 5: Run tests**
@@ -802,11 +805,13 @@ git commit -m "feat(mcp): add project and tag tools"
 ## Task 5: Time-tracking tools (start / stop / log / report)
 
 **Files:**
+
 - Create: `apps/mcp/src/tools/time.ts`
 - Modify: `apps/mcp/src/tools/index.ts`
 - Create: `apps/mcp/src/__tests__/time-tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `timeService.{startTimer,stopTimer,logManual}`, `reportService.timeReport`. Clock passed as a trailing positional `now` argument (`new Date()`), per the Phase 2 signatures.
 - Produces: tools `start_timer`, `stop_timer`, `log_time`, `get_time_report`.
 
@@ -918,7 +923,11 @@ export function registerTimeTools(server: McpServer, db: Db): void {
     },
     ({ taskId, minutes, startedAt, note }) =>
       guard(() =>
-        timeService.logManual(db, { taskId, startedAt, durationSeconds: minutes * 60, note }, new Date()),
+        timeService.logManual(
+          db,
+          { taskId, startedAt, durationSeconds: minutes * 60, note },
+          new Date(),
+        ),
       ),
   );
 
@@ -945,7 +954,7 @@ export function registerTimeTools(server: McpServer, db: Db): void {
 ```ts
 import { registerTimeTools } from './time.js';
 // ...inside registerTools:
-  registerTimeTools(server, db);
+registerTimeTools(server, db);
 ```
 
 - [ ] **Step 5: Run tests + typecheck**
@@ -967,11 +976,13 @@ git commit -m "feat(mcp): add time-tracking tools (start/stop/log/report)"
 ## Task 6: Reminder & quick-add tools
 
 **Files:**
+
 - Create: `apps/mcp/src/tools/misc.ts`
 - Modify: `apps/mcp/src/tools/index.ts`
 - Create: `apps/mcp/src/__tests__/misc-tools.test.ts`
 
 **Interfaces:**
+
 - Consumes: `reminderService.create`, `quickAddService.create(db, text, now?)`.
 - Produces: tools `set_reminder`, `quick_add`. `quick_add` returns the created task; `set_reminder` returns the reminder.
 
@@ -1038,8 +1049,7 @@ export function registerMiscTools(server: McpServer, db: Db): void {
     'quick_add',
     {
       title: 'Quick add',
-      description:
-        'Create a task from natural language, e.g. "buy milk tomorrow 5pm #errands p1".',
+      description: 'Create a task from natural language, e.g. "buy milk tomorrow 5pm #errands p1".',
       inputSchema: { text: z.string().min(1) },
     },
     ({ text }) => guard(() => quickAddService.create(db, text, new Date())),
@@ -1086,10 +1096,23 @@ it('registers all 17 tools', async () => {
   const names = tools.map((t) => t.name).sort();
   expect(names).toEqual(
     [
-      'add_tag', 'complete_task', 'create_project', 'create_task', 'delete_task',
-      'get_task', 'get_time_report', 'list_projects', 'list_tasks', 'log_time',
-      'quick_add', 'search_tasks', 'set_reminder', 'set_status', 'start_timer',
-      'stop_timer', 'update_task',
+      'add_tag',
+      'complete_task',
+      'create_project',
+      'create_task',
+      'delete_task',
+      'get_task',
+      'get_time_report',
+      'list_projects',
+      'list_tasks',
+      'log_time',
+      'quick_add',
+      'search_tasks',
+      'set_reminder',
+      'set_status',
+      'start_timer',
+      'stop_timer',
+      'update_task',
     ].sort(),
   );
 });
@@ -1114,11 +1137,13 @@ git commit -m "feat(mcp): add reminder and quick_add tools; assert full tool set
 ## Task 7: Resources (`task://`, `project://`, `tasks://today`, `tasks://overdue`)
 
 **Files:**
+
 - Create: `apps/mcp/src/resources.ts`
 - Modify: `apps/mcp/src/server.ts` (call `registerResources`)
 - Create: `apps/mcp/src/__tests__/resources.test.ts`
 
 **Interfaces:**
+
 - Consumes: `taskService.{get,list}`, `projectService.get`.
 - Produces: `registerResources(server, db)` registering: `task://{id}` and `project://{id}` (parameterized via `ResourceTemplate`), and fixed `tasks://today` / `tasks://overdue`. Each returns a `contents` array of `{ uri, mimeType: 'application/json', text }`.
 
@@ -1223,7 +1248,11 @@ export function registerResources(server: McpServer, db: Db): void {
   server.registerResource(
     'tasks-overdue',
     'tasks://overdue',
-    { title: 'Overdue tasks', description: 'Incomplete tasks past their due date', mimeType: 'application/json' },
+    {
+      title: 'Overdue tasks',
+      description: 'Incomplete tasks past their due date',
+      mimeType: 'application/json',
+    },
     async (uri) => {
       const tasks = await taskService.list(db, { dueBefore: new Date(), status: 'todo' });
       return jsonContents(uri.href, tasks);
@@ -1239,7 +1268,7 @@ export function registerResources(server: McpServer, db: Db): void {
 ```ts
 import { registerResources } from './resources.js';
 // ...after registerTools(server, db):
-  registerResources(server, db);
+registerResources(server, db);
 ```
 
 - [ ] **Step 5: Run tests + typecheck**
@@ -1261,11 +1290,13 @@ git commit -m "feat(mcp): add task/project/today/overdue resources"
 ## Task 8: Prompts (`plan_my_day`, `summarize_progress`)
 
 **Files:**
+
 - Create: `apps/mcp/src/prompts.ts`
 - Modify: `apps/mcp/src/server.ts`
 - Create: `apps/mcp/src/__tests__/prompts.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing from core directly — prompts return message templates that instruct the agent to use the tools/resources above.
 - Produces: `registerPrompts(server)` registering `plan_my_day` and `summarize_progress`, each returning `{ messages: [...] }`.
 
@@ -1386,12 +1417,14 @@ git commit -m "feat(mcp): add plan_my_day and summarize_progress prompts"
 ## Task 9: Transports (stdio + streamable-HTTP) & config docs
 
 **Files:**
+
 - Create: `apps/mcp/src/stdio.ts`
 - Create: `apps/mcp/src/http.ts`
 - Create: `apps/mcp/README.md`
 - Modify: root `turbo.json` (no change needed if `typecheck`/`test` are globless; confirm mcp is picked up)
 
 **Interfaces:**
+
 - Consumes: `createMcpServer`, `createDb`, `runMigrations` from core; env `JUSTDOIT_DB`, `JUSTDOIT_API_KEY`, `JUSTDOIT_MCP_PORT`.
 - Produces:
   - `src/stdio.ts` — shebang bin entry; opens the DB, runs migrations, connects `StdioServerTransport`.
@@ -1471,7 +1504,7 @@ http.listen(port, () => {
 
 - [ ] **Step 3: Write `apps/mcp/README.md` (harness config docs)**
 
-```md
+````md
 # @justdoit/mcp
 
 MCP server exposing justdoit tasks over `@justdoit/core` (in-process).
@@ -1483,11 +1516,11 @@ MCP server exposing justdoit tasks over `@justdoit/core` (in-process).
 
 ## Environment
 
-| Var | Default | Purpose |
-|---|---|---|
-| `JUSTDOIT_DB` | `justdoit.db` | SQLite file path |
-| `JUSTDOIT_API_KEY` | _(unset)_ | If set, HTTP transport requires `Authorization: Bearer <key>` or `X-API-Key: <key>` |
-| `JUSTDOIT_MCP_PORT` | `3939` | HTTP transport port |
+| Var                 | Default       | Purpose                                                                             |
+| ------------------- | ------------- | ----------------------------------------------------------------------------------- |
+| `JUSTDOIT_DB`       | `justdoit.db` | SQLite file path                                                                    |
+| `JUSTDOIT_API_KEY`  | _(unset)_     | If set, HTTP transport requires `Authorization: Bearer <key>` or `X-API-Key: <key>` |
+| `JUSTDOIT_MCP_PORT` | `3939`        | HTTP transport port                                                                 |
 
 ## Register in an agent harness (stdio)
 
@@ -1506,6 +1539,7 @@ Add to your harness `mcpServers` config (e.g. `~/.claude.json` / `claude_desktop
   }
 }
 ```
+````
 
 If `tsx` is not on PATH, use `pnpm`:
 
@@ -1524,7 +1558,8 @@ If `tsx` is not on PATH, use `pnpm`:
 ## Register over HTTP
 
 Point an HTTP-capable MCP client at `http://localhost:3939` and send `Authorization: Bearer <JUSTDOIT_API_KEY>` if auth is enabled.
-```
+
+````
 
 - [ ] **Step 4: Smoke-run stdio (manual verification)**
 
@@ -1549,7 +1584,7 @@ Expected: all PASS (mcp tests included via Turbo).
 ```bash
 git add -A
 git commit -m "feat(mcp): add stdio + streamable-HTTP entrypoints and harness config docs"
-```
+````
 
 ---
 
