@@ -1,6 +1,5 @@
 import {
   activityEntrySchema,
-  attachmentSchema,
   parseTolerant,
   projectSchema,
   reminderSchema,
@@ -492,6 +491,33 @@ async function listActivity(entityType: 'task' | 'project' | 'time_entry', entit
 }
 
 // ---------------------------------------------------------------------------
+// Saved filters
+// ---------------------------------------------------------------------------
+
+export interface CreateSavedFilterInput {
+  name: string;
+  query: Record<string, unknown>;
+}
+export type UpdateSavedFilterInput = Partial<CreateSavedFilterInput>;
+
+async function listSavedFilters(): Promise<SavedFilter[]> {
+  const data = await request<{ savedFilters: unknown[] }>('/saved-filters');
+  return data.savedFilters.map((f) => parseTolerant(savedFilterSchema, f, 'savedFilter'));
+}
+
+async function createSavedFilter(input: CreateSavedFilterInput): Promise<SavedFilter> {
+  const data = await request<{ savedFilter: unknown }>('/saved-filters', {
+    method: 'POST',
+    body: json(input),
+  });
+  return parseTolerant(savedFilterSchema, data.savedFilter, 'savedFilter');
+}
+
+async function deleteSavedFilter(id: string): Promise<void> {
+  await request<void>(`/saved-filters/${id}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
 // Export / import
 // ---------------------------------------------------------------------------
 
@@ -542,6 +568,9 @@ export const api = {
   exportData,
   importData,
   listActivity,
+  listSavedFilters,
+  createSavedFilter,
+  deleteSavedFilter,
 };
 
 export type Api = typeof api;

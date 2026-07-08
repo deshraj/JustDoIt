@@ -15,6 +15,7 @@ import { reportRoutes } from './routes/reports';
 import { reminderRoutes } from './routes/reminders';
 import { activityRoutes } from './routes/activity';
 import { eventsRoutes } from './routes/events';
+import { savedFilterRoutes } from './routes/saved-filters';
 
 export function createApp(db: Db): Hono {
   // Attach the activity-log subscriber once per app instance so every
@@ -48,5 +49,6 @@ export function createApp(db: Db): Hono {
   app.route('/reminders', reminderRoutes(db));
   app.route('/', activityRoutes(db));
   app.route('/', eventsRoutes());
+  app.route('/', savedFilterRoutes(db));
   return app;
 }

@@ -31,16 +31,18 @@ export const activityService = {
     const conds = [];
     if (input.entityType) conds.push(eq(activityLog.entityType, input.entityType));
     if (input.entityId) conds.push(eq(activityLog.entityId, input.entityId));
-    return db
-      .select()
-      .from(activityLog)
-      .where(conds.length ? and(...conds) : undefined)
-      // `id` is a random UUID (no chronological meaning), so ties within the
-      // same millisecond are broken by SQLite's implicit rowid, which is
-      // exactly insertion order — unlike the UUID, monotonically increasing.
-      .orderBy(desc(activityLog.createdAt), desc(sql`rowid`))
-      .limit(input.limit ?? 100)
-      .all();
+    return (
+      db
+        .select()
+        .from(activityLog)
+        .where(conds.length ? and(...conds) : undefined)
+        // `id` is a random UUID (no chronological meaning), so ties within the
+        // same millisecond are broken by SQLite's implicit rowid, which is
+        // exactly insertion order — unlike the UUID, monotonically increasing.
+        .orderBy(desc(activityLog.createdAt), desc(sql`rowid`))
+        .limit(input.limit ?? 100)
+        .all()
+    );
   },
 };
 

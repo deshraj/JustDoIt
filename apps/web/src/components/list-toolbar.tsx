@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PRIORITY_LABELS, STATUS_LABELS } from '@/lib/utils';
+import { SavedFiltersMenu } from '@/components/saved-filters-menu';
 
 export const GROUP_OPTIONS = ['status', 'project', 'priority', 'due', 'none'] as const;
 export type GroupBy = (typeof GROUP_OPTIONS)[number];
@@ -62,6 +63,29 @@ export function ListToolbar() {
     const next = new URLSearchParams(searchParams.toString());
     if (value === undefined || value === ANY) next.delete(key);
     else next.set(key, value);
+    router.replace(`${pathname}?${next.toString()}`);
+  }
+
+  // Only the actual filter fields (not group/sort) round-trip through a
+  // saved view — this shape matches @justdoit/core's savedFilterQuerySchema.
+  const currentFilterQuery: Record<string, unknown> = {
+    status: filters.status,
+    priority: filters.priority,
+    projectId: filters.projectId,
+    tagId: filters.tagId,
+    due: filters.due,
+    search: filters.search,
+  };
+
+  function applySavedFilter(query: Record<string, unknown>): void {
+    const next = new URLSearchParams();
+    if (typeof query.status === 'string') next.set('status', query.status);
+    if (typeof query.priority === 'string') next.set('priority', query.priority);
+    if (typeof query.projectId === 'string') next.set('project', query.projectId);
+    else if (query.projectId === null) next.set('project', 'none');
+    if (typeof query.tagId === 'string') next.set('tag', query.tagId);
+    if (typeof query.due === 'string') next.set('due', query.due);
+    if (typeof query.search === 'string') next.set('q', query.search);
     router.replace(`${pathname}?${next.toString()}`);
   }
 
@@ -157,6 +181,8 @@ export function ListToolbar() {
           <SelectItem value="upcoming">Upcoming</SelectItem>
         </SelectContent>
       </Select>
+
+      <SavedFiltersMenu current={currentFilterQuery} onApply={applySavedFilter} />
     </div>
   );
 }
