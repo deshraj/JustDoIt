@@ -61,4 +61,27 @@ describe('attachment routes', () => {
     const res = await app.request('/attachments/nope');
     expect(res.status).toBe(404);
   });
+
+  it('emits a header-safe Content-Disposition for hostile filenames', async () => {
+    const { db, app } = await harness();
+    const task = taskService.create(db, { title: 'T' });
+
+    const form = new FormData();
+    // Quote + control char (newline) that would break the header if inlined.
+    form.append('file', new File(['x'], 'a"\n.txt', { type: 'text/plain' }));
+    const up = await app.request(`/tasks/${task.id}/attachments`, { method: 'POST', body: form });
+    expect(up.status).toBe(201);
+    const { attachment } = (await up.json()) as { attachment: AttachmentJson };
+
+    const dl = await app.request(`/attachments/${attachment.id}`);
+    expect(dl.status).toBe(200);
+    expect(await dl.text()).toBe('x');
+    const disposition = dl.headers.get('Content-Disposition') ?? '';
+    // ASCII fallback must not carry raw quotes or control chars…
+    const fallback = disposition.split('filename*=')[0] ?? '';
+    expect(fallback).not.toMatch(/[\r\n]/);
+    expect(fallback.match(/"/g)?.length).toBe(2); // only the two wrapping quotes
+    // …and the exact name is preserved via RFC 5987 filename*.
+    expect(disposition).toContain("filename*=UTF-8''");
+  });
 });
