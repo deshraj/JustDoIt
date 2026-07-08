@@ -11,24 +11,37 @@ export function useTasks(filters: TaskFilters = {}) {
   });
 }
 
-/** Patch every cached tasks-list query in place; returns a rollback snapshot. */
+/**
+ * Patch every cached tasks query in place — both list queries (`Task[]`, e.g.
+ * qk.tasks.list(...)) and single-task detail queries (`Task`, e.g.
+ * qk.tasks.detail(id)) share the `qk.tasks.all` (`['tasks']`) key prefix, so
+ * `getQueriesData` returns both shapes and each must be patched differently.
+ * Returns a rollback snapshot.
+ */
 function optimisticallyPatchLists(
   qc: QueryClient,
   id: string,
   patch: Partial<Task>,
-): Array<[readonly unknown[], Task[] | undefined]> {
-  const entries = qc.getQueriesData<Task[]>({ queryKey: qk.tasks.all });
+): Array<[readonly unknown[], Task[] | Task | undefined]> {
+  const entries = qc.getQueriesData<Task[] | Task>({ queryKey: qk.tasks.all });
   for (const [key, data] of entries) {
     if (!data) continue;
-    qc.setQueryData<Task[]>(
-      key,
-      data.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    );
+    if (Array.isArray(data)) {
+      qc.setQueryData<Task[]>(
+        key,
+        data.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      );
+    } else if (data.id === id) {
+      qc.setQueryData<Task>(key, { ...data, ...patch });
+    }
   }
   return entries;
 }
 
-function rollback(qc: QueryClient, entries: Array<[readonly unknown[], Task[] | undefined]>): void {
+function rollback(
+  qc: QueryClient,
+  entries: Array<[readonly unknown[], Task[] | Task | undefined]>,
+): void {
   for (const [key, data] of entries) qc.setQueryData(key, data);
 }
 
