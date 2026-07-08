@@ -6,3 +6,4 @@ export * from './schemas/time-entry-schema';
 export * from './schemas/report-schema';
 export * from './services/time-service';
 export * from './services/report-service';
+export * from './recurrence';
