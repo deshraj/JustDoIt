@@ -78,6 +78,9 @@ export const exportService = {
     if (!snapshot || typeof snapshot !== 'object') {
       throw new ValidationError('Snapshot must be an object');
     }
+    if (snapshot.version !== 1) {
+      throw new ValidationError(`Unsupported snapshot version: ${String(snapshot.version)}`);
+    }
     for (const key of REQUIRED_ARRAYS) {
       if (!Array.isArray((snapshot as unknown as Record<string, unknown>)[key])) {
         throw new ValidationError(`Snapshot is missing array: ${key}`);

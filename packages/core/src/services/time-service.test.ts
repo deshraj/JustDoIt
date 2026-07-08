@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createDb, runMigrations, type Db } from '../db';
 import { tasks, projects, type TimeEntry } from '../db/schema';
 import { timeService } from './time-service';
-import { NotFoundError, ValidationError } from '../errors';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 
 const T0 = new Date('2026-07-08T09:00:00.000Z');
 const T30 = new Date('2026-07-08T09:30:00.000Z');
@@ -47,11 +47,10 @@ describe('timeService timers', () => {
 
     // The first was closed at T30 (the new timer's now) → 1800s.
     const entries: TimeEntry[] = timeService.listEntries(db);
-    const closedFirst = entries.find((e) => e.id === first.id) ?? null;
-    if (closedFirst) {
-      expect(closedFirst.endedAt?.getTime()).toBe(T30.getTime());
-      expect(closedFirst.durationSeconds).toBe(1800);
-    }
+    const closedFirst = entries.find((e) => e.id === first.id);
+    expect(closedFirst).toBeDefined();
+    expect(closedFirst!.endedAt?.getTime()).toBe(T30.getTime());
+    expect(closedFirst!.durationSeconds).toBe(1800);
   });
 
   it('stopTimer with no ref stops the single running entry and computes duration', () => {
@@ -134,6 +133,26 @@ describe('timeService manual entries & management', () => {
     const e = timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 600 }, T0);
     const updated = timeService.updateEntry(db, e.id, { endedAt: T60 }, T60);
     expect(updated.durationSeconds).toBe(3600);
+  });
+
+  it('updateEntry clearing endedAt nulls durationSeconds (entry reopens as running)', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, endedAt: T60 }, T0);
+    expect(e.durationSeconds).toBe(3600);
+    const updated = timeService.updateEntry(db, e.id, { endedAt: null }, T60);
+    expect(updated.endedAt).toBeNull();
+    expect(updated.durationSeconds).toBeNull();
+    expect(timeService.getRunning(db)?.id).toBe(updated.id);
+  });
+
+  it('updateEntry refuses to reopen an entry while another timer is running', () => {
+    const a = seedTask(db, 'A');
+    const b = seedTask(db, 'B');
+    const closed = timeService.logManual(db, { taskId: a, startedAt: T0, endedAt: T30 }, T0);
+    timeService.startTimer(db, b, T60); // another running entry
+    expect(() => timeService.updateEntry(db, closed.id, { endedAt: null }, T60)).toThrow(
+      ConflictError,
+    );
   });
 
   it('updateEntry can set a note without touching duration', () => {

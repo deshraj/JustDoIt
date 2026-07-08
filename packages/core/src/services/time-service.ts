@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, isNotNull, isNull, lte } from 'drizzle-orm';
 import type { Db } from '../db';
 import { tasks, timeEntries, type TimeEntry } from '../db/schema';
-import { NotFoundError, ValidationError } from '../errors';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import type {
   LogManualInput,
   TimeEntryFilter,
@@ -189,7 +189,19 @@ export const timeService = {
     let durationSeconds =
       patch.durationSeconds !== undefined ? patch.durationSeconds : existing.durationSeconds;
 
-    if (endedAt) {
+    if (patch.endedAt === null) {
+      // Clearing the end time reopens the entry — it becomes "running" again, so any
+      // previously computed duration is now stale and must be cleared too.
+      durationSeconds = null;
+      // Preserve the single-running-entry invariant: reopening this entry must not
+      // create a second concurrent `endedAt IS NULL` row for a different entry.
+      if (existing.endedAt !== null) {
+        const otherRunning = timeService.getRunning(db);
+        if (otherRunning && otherRunning.id !== id) {
+          throw new ConflictError('Another time entry is already running');
+        }
+      }
+    } else if (endedAt) {
       // A concrete end time is authoritative: derive duration from timestamps.
       durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
     } else if (patch.durationSeconds != null) {

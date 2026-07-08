@@ -65,4 +65,13 @@ describe('exportService', () => {
   it('rejects a malformed snapshot', () => {
     expect(() => exportService.importSnapshot(db, {} as never)).toThrow(ValidationError);
   });
+
+  it('rejects a snapshot with an unsupported version', () => {
+    seed(db);
+    const snap = exportService.exportSnapshot(db);
+    const target = freshDb();
+    expect(() => exportService.importSnapshot(target, { ...snap, version: 2 } as never)).toThrow(
+      ValidationError,
+    );
+  });
 });
