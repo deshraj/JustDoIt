@@ -121,6 +121,9 @@ export interface TaskFilters {
   search?: string;
   due?: 'overdue' | 'today' | 'upcoming';
   days?: number;
+  /** Arbitrary due-date window (inclusive) — e.g. the Calendar view's visible month. */
+  dueFrom?: Date;
+  dueTo?: Date;
 }
 
 function taskFiltersQuery(filters: TaskFilters = {}): string {
@@ -134,6 +137,8 @@ function taskFiltersQuery(filters: TaskFilters = {}): string {
     search: filters.search,
     due: filters.due,
     days: filters.days,
+    due_from: filters.dueFrom,
+    due_to: filters.dueTo,
   });
 }
 
