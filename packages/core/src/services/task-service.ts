@@ -17,6 +17,7 @@ import {
 } from '../schemas';
 import { assertValidWindow, spawnNextRecurrence } from './schedule-service';
 import { assertValidRecurrence } from '../recurrence';
+import type { DueFilter } from '../schemas/schedule';
 
 export interface TaskListFilters {
   status?: TaskStatus;
@@ -26,6 +27,11 @@ export interface TaskListFilters {
   parentTaskId?: string | null;
   archived?: boolean;
   search?: string;
+  // Not applied by `taskService.list` directly — REST short-circuits to
+  // schedule-service's clock-injected window queries when `due` is set
+  // (see apps/api/src/routes/tasks.ts). Kept on the shared filter shape so
+  // callers (REST, future MCP) have one canonical task-list query surface.
+  due?: DueFilter;
 }
 
 function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {

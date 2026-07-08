@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations } from '@justdoit/core';
+import { createDb, runMigrations, tasks } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TaskJson {
@@ -86,5 +86,30 @@ describe('tasks routes', () => {
 
   it('returns 404 for a missing task', async () => {
     expect((await app().request('/tasks/nope')).status).toBe(404);
+  });
+
+  it('filters tasks by due=overdue', async () => {
+    const { db } = createDb(':memory:');
+    runMigrations(db);
+    const a = createApp(db);
+    const past = new Date(Date.now() - 86_400_000);
+    db.insert(tasks).values({ title: 'late', dueAt: past }).run();
+    db.insert(tasks).values({ title: 'no-due' }).run();
+    const res = await a.request('/tasks?due=overdue');
+    const body = (await res.json()) as TaskJson[];
+    expect(body.map((t) => t.title)).toEqual(['late']);
+  });
+
+  it('filters tasks by due=upcoming with days', async () => {
+    const { db } = createDb(':memory:');
+    runMigrations(db);
+    const a = createApp(db);
+    const inThree = new Date(Date.now() + 3 * 86_400_000);
+    const inTen = new Date(Date.now() + 10 * 86_400_000);
+    db.insert(tasks).values({ title: 'soon', dueAt: inThree }).run();
+    db.insert(tasks).values({ title: 'later', dueAt: inTen }).run();
+    const res = await a.request('/tasks?due=upcoming&days=7');
+    const body = (await res.json()) as TaskJson[];
+    expect(body.map((t) => t.title)).toEqual(['soon']);
   });
 });

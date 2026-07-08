@@ -5,6 +5,10 @@ import {
   createTaskSchema,
   updateTaskSchema,
   setStatusSchema,
+  dueFilterSchema,
+  listOverdue,
+  listDueToday,
+  listUpcoming,
   type Db,
   type TaskListFilters,
   type TaskStatus,
@@ -24,13 +28,30 @@ function parseFilters(query: Record<string, string>): TaskListFilters {
     filters.parentTaskId = query.parent_task_id === 'none' ? null : query.parent_task_id;
   }
   if (query.archived !== undefined) filters.archived = query.archived === 'true';
+  const due = dueFilterSchema.safeParse(query.due);
+  if (due.success) filters.due = due.data;
   return filters;
 }
 
 export function taskRoutes(db: Db): Hono {
   const r = new Hono();
 
-  r.get('/', (c) => c.json(taskService.list(db, parseFilters(c.req.query()))));
+  r.get('/', (c) => {
+    const query = c.req.query();
+    const filters = parseFilters(query);
+    if (filters.due) {
+      const now = new Date();
+      const days = query.days ? Number(query.days) : 7;
+      const result =
+        filters.due === 'overdue'
+          ? listOverdue(db, now)
+          : filters.due === 'today'
+            ? listDueToday(db, now)
+            : listUpcoming(db, now, days);
+      return c.json(result);
+    }
+    return c.json(taskService.list(db, filters));
+  });
 
   r.post('/', zValidator('json', createTaskSchema), (c) =>
     c.json(taskService.create(db, c.req.valid('json')), 201),
