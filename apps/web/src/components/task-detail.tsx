@@ -15,6 +15,7 @@ import { SubtaskList } from '@/components/subtask-list';
 import { TagPicker } from '@/components/tag-picker';
 import { InlineTimer } from '@/components/inline-timer';
 import { ActivityTimeline } from '@/components/activity-timeline';
+import { AttachmentsPanel } from '@/components/attachments-panel';
 import { cn } from '@/lib/utils';
 
 function TitleField({ task, onSave }: { task: Task; onSave: (title: string) => void }) {
@@ -110,6 +111,13 @@ export function TaskDetail({ taskId }: { taskId: string }) {
       <TagPicker taskId={taskId} />
 
       <SubtaskList taskId={taskId} />
+
+      <section className="flex flex-col gap-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Attachments
+        </h3>
+        <AttachmentsPanel taskId={taskId} />
+      </section>
 
       <section className="flex flex-col gap-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Timer</h3>

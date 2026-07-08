@@ -7,11 +7,14 @@ const dbUrl = process.env.JUSTDOIT_DB ?? 'justdoit.db';
 const { db } = createDb(dbUrl);
 runMigrations(db);
 
-const app = createApp(db);
+const filesDir = process.env.JUSTDOIT_FILES_DIR ?? './data/files';
+const app = createApp(db, { filesDir });
 const port = Number(process.env.JUSTDOIT_API_PORT ?? 8787);
 
 serve({ fetch: app.fetch, port });
-console.log(`justdoit API listening on http://localhost:${port} (db: ${dbUrl})`);
+console.log(
+  `justdoit API listening on http://localhost:${port} (db: ${dbUrl}, files: ${filesDir})`,
+);
 
 if (process.env.JUSTDOIT_DISABLE_SCHEDULER !== '1') {
   startReminderScheduler({ db });

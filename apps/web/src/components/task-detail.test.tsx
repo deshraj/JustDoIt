@@ -14,6 +14,7 @@ const listTaskTags = vi.fn();
 const listTimeEntries = vi.fn();
 const completeTask = vi.fn();
 const listActivity = vi.fn();
+const listAttachments = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -26,7 +27,9 @@ vi.mock('@/lib/api', () => ({
     listTimeEntries: (...a: unknown[]) => listTimeEntries(...a),
     completeTask: (...a: unknown[]) => completeTask(...a),
     listActivity: (...a: unknown[]) => listActivity(...a),
+    listAttachments: (...a: unknown[]) => listAttachments(...a),
   },
+  apiUrl: (path: string) => `http://localhost:8787${path}`,
 }));
 
 function makeTask(overrides: Partial<Task> = {}): Task {
@@ -71,6 +74,7 @@ describe('TaskDetail', () => {
     listTimeEntries.mockReset().mockResolvedValue([]);
     completeTask.mockReset().mockResolvedValue(makeTask({ status: 'done' }));
     listActivity.mockReset().mockResolvedValue([]);
+    listAttachments.mockReset().mockResolvedValue([]);
   });
 
   it('renders **bold** markdown as <strong> in the Preview tab', async () => {

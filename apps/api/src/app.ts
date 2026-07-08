@@ -16,8 +16,14 @@ import { reminderRoutes } from './routes/reminders';
 import { activityRoutes } from './routes/activity';
 import { eventsRoutes } from './routes/events';
 import { savedFilterRoutes } from './routes/saved-filters';
+import { attachmentRoutes } from './routes/attachments';
 
-export function createApp(db: Db): Hono {
+export interface CreateAppOptions {
+  /** Attachment storage dir; defaults to JUSTDOIT_FILES_DIR or ./data/files. */
+  filesDir?: string;
+}
+
+export function createApp(db: Db, opts: CreateAppOptions = {}): Hono {
   // Attach the activity-log subscriber once per app instance so every
   // mutation made through this app's db is persisted to the audit trail.
   startActivityLog(db);
@@ -50,5 +56,7 @@ export function createApp(db: Db): Hono {
   app.route('/', activityRoutes(db));
   app.route('/', eventsRoutes());
   app.route('/', savedFilterRoutes(db));
+  const filesDir = opts.filesDir ?? process.env.JUSTDOIT_FILES_DIR ?? './data/files';
+  app.route('/', attachmentRoutes(db, filesDir));
   return app;
 }

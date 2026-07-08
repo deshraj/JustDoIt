@@ -1,5 +1,6 @@
 import {
   activityEntrySchema,
+  attachmentSchema,
   parseTolerant,
   projectSchema,
   reminderSchema,
@@ -541,6 +542,40 @@ async function deleteSavedFilter(id: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Attachments
+// ---------------------------------------------------------------------------
+
+async function listAttachments(taskId: string): Promise<Attachment[]> {
+  const data = await request<{ attachments: unknown[] }>(`/tasks/${taskId}/attachments`);
+  return data.attachments.map((a) => parseTolerant(attachmentSchema, a, 'attachment'));
+}
+
+/** Bypasses `request()` — multipart bodies must not get the JSON Content-Type header. */
+async function uploadAttachment(taskId: string, file: File): Promise<Attachment> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${getBaseUrl()}/tasks/${taskId}/attachments`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!res.ok) {
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      body = undefined;
+    }
+    throw new ApiError(res.status, extractErrorMessage(res.status, body), body);
+  }
+  const data = (await res.json()) as { attachment: unknown };
+  return parseTolerant(attachmentSchema, data.attachment, 'attachment');
+}
+
+async function deleteAttachment(id: string): Promise<void> {
+  await request<void>(`/attachments/${id}`, { method: 'DELETE' });
+}
+
+// ---------------------------------------------------------------------------
 // Export / import
 // ---------------------------------------------------------------------------
 
@@ -596,6 +631,9 @@ export const api = {
   listSavedFilters,
   createSavedFilter,
   deleteSavedFilter,
+  listAttachments,
+  uploadAttachment,
+  deleteAttachment,
 };
 
 export type Api = typeof api;
