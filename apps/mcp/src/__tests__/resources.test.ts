@@ -67,6 +67,13 @@ describe('resources', () => {
     expect(body.some((t) => t.title === 'Due today')).toBe(true);
   });
 
+  it('reading a nonexistent task:// resource returns a JSON-RPC error, not a crash', async () => {
+    const { client } = await makeClient(freshDb());
+    await expect(
+      client.readResource({ uri: 'task://00000000-0000-0000-0000-000000000000' }),
+    ).rejects.toThrow();
+  });
+
   it('excludes done tasks from tasks://overdue', async () => {
     const db = freshDb();
     const { client } = await makeClient(db);

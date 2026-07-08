@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { tags } from '@justdoit/core';
 import { freshDb, makeClient, firstJson } from './helpers.js';
 
 describe('project tools', () => {
@@ -68,5 +70,18 @@ describe('tag tools', () => {
       await client.callTool({ name: 'list_tasks', arguments: { tag: 'shared' } }),
     ) as { id: string }[];
     expect(byTag.map((t) => t.id).sort()).toEqual([task1.id, task2.id].sort());
+  });
+
+  it('add_tag on a missing task errors and does not orphan a tag row', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const res = await client.callTool({
+      name: 'add_tag',
+      arguments: { taskId: 'missing', name: 'brandnew' },
+    });
+    expect(res.isError).toBe(true);
+    // No `brandnew` tag row should have been created.
+    const rows = db.select().from(tags).where(eq(tags.name, 'brandnew')).all();
+    expect(rows).toHaveLength(0);
   });
 });
