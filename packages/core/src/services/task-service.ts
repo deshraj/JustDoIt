@@ -15,7 +15,7 @@ import {
   type CreateTaskInput,
   type UpdateTaskInput,
 } from '../schemas';
-import { assertValidWindow } from './schedule-service';
+import { assertValidWindow, spawnNextRecurrence } from './schedule-service';
 import { assertValidRecurrence } from '../recurrence';
 
 export interface TaskListFilters {
@@ -144,11 +144,13 @@ export const taskService = {
     return row!;
   },
 
-  // `now` is accepted (default new Date()) for signature stability; Phase 3 uses it
-  // to anchor recurrence spawn-on-complete. Phase 1's body does not yet read it.
   complete(db: Db, id: string, now: Date = new Date()): Task {
-    void now;
-    return taskService.setStatus(db, id, 'done');
+    // Capture the pre-completion row so the recurrence anchor uses the
+    // original recurrence/dueAt, not the post-completion state.
+    const task = taskService.get(db, id);
+    const completed = taskService.setStatus(db, id, 'done');
+    spawnNextRecurrence(db, task, now);
+    return completed;
   },
 
   remove(db: Db, id: string): void {

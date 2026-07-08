@@ -131,4 +131,33 @@ describe('taskService', () => {
       ValidationError,
     );
   });
+
+  it('spawns the next occurrence when completing a recurring task', () => {
+    const now = new Date('2026-03-02T10:00:00Z');
+    const task = taskService.create(db, {
+      title: 'water plants',
+      recurrence: 'FREQ=WEEKLY;BYDAY=MO',
+      dueAt: new Date('2026-03-02T09:00:00Z'), // a Monday
+    });
+    taskService.complete(db, task.id, now);
+
+    const open = taskService.list(db, { status: 'todo' });
+    const spawned = open.find((t) => t.title === 'water plants');
+    expect(spawned).toBeDefined();
+    expect(spawned!.id).not.toBe(task.id);
+    expect(spawned!.dueAt?.toISOString()).toBe('2026-03-09T09:00:00.000Z');
+    expect(spawned!.recurrence).toBe('FREQ=WEEKLY;BYDAY=MO');
+    expect(spawned!.completedAt).toBeNull();
+  });
+
+  it('does not spawn for a non-recurring task', () => {
+    const now = new Date('2026-03-02T10:00:00Z');
+    const task = taskService.create(db, {
+      title: 'one-off',
+      dueAt: new Date('2026-03-02T09:00:00Z'),
+    });
+    taskService.complete(db, task.id, now);
+    const open = taskService.list(db, { status: 'todo' });
+    expect(open.find((t) => t.title === 'one-off')).toBeUndefined();
+  });
 });
