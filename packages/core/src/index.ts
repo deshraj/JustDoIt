@@ -11,3 +11,5 @@ export * from './schemas/schedule';
 export * from './services/schedule-service';
 export * from './schemas/reminder';
 export * from './services/reminder-service';
+export * from './events/bus';
+export * from './events/emit';
