@@ -89,6 +89,23 @@ describe('taskService', () => {
     expect(taskService.list(db, { search: 'zzz' })).toHaveLength(0);
   });
 
+  it('filters by an inclusive dueFrom/dueTo range', () => {
+    const dueFrom = new Date('2026-03-01T00:00:00Z');
+    const dueTo = new Date('2026-03-31T23:59:59Z');
+    taskService.create(db, { title: 'before range', dueAt: new Date('2026-02-15T00:00:00Z') });
+    taskService.create(db, { title: 'on dueFrom boundary', dueAt: dueFrom });
+    taskService.create(db, { title: 'inside range', dueAt: new Date('2026-03-15T00:00:00Z') });
+    taskService.create(db, { title: 'on dueTo boundary', dueAt: dueTo });
+    taskService.create(db, { title: 'after range', dueAt: new Date('2026-04-15T00:00:00Z') });
+    taskService.create(db, { title: 'no due date' });
+
+    expect(taskService.list(db, { dueFrom, dueTo }).map((t) => t.title)).toEqual([
+      'on dueFrom boundary',
+      'inside range',
+      'on dueTo boundary',
+    ]);
+  });
+
   it('removes a task and cascades its subtasks', () => {
     const parent = taskService.create(db, { title: 'parent' });
     taskService.addSubtask(db, parent.id, { title: 'child' });

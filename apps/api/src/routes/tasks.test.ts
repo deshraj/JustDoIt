@@ -112,4 +112,38 @@ describe('tasks routes', () => {
     const body = (await res.json()) as TaskJson[];
     expect(body.map((t) => t.title)).toEqual(['soon']);
   });
+
+  it('filters tasks by due_from/due_to range', async () => {
+    const { db } = createDb(':memory:');
+    runMigrations(db);
+    const a = createApp(db);
+    db.insert(tasks)
+      .values({ title: 'before range', dueAt: new Date('2026-02-15T00:00:00Z'), position: 1 })
+      .run();
+    db.insert(tasks)
+      .values({
+        title: 'on dueFrom boundary',
+        dueAt: new Date('2026-03-01T00:00:00Z'),
+        position: 2,
+      })
+      .run();
+    db.insert(tasks)
+      .values({ title: 'inside range', dueAt: new Date('2026-03-15T00:00:00Z'), position: 3 })
+      .run();
+    db.insert(tasks)
+      .values({ title: 'on dueTo boundary', dueAt: new Date('2026-03-31T00:00:00Z'), position: 4 })
+      .run();
+    db.insert(tasks)
+      .values({ title: 'after range', dueAt: new Date('2026-04-15T00:00:00Z'), position: 5 })
+      .run();
+    db.insert(tasks).values({ title: 'no due date', position: 6 }).run();
+
+    const res = await a.request('/tasks?due_from=2026-03-01&due_to=2026-03-31');
+    const body = (await res.json()) as TaskJson[];
+    expect(body.map((t) => t.title)).toEqual([
+      'on dueFrom boundary',
+      'inside range',
+      'on dueTo boundary',
+    ]);
+  });
 });
