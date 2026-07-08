@@ -8,6 +8,7 @@ import {
   type CreateProjectInput,
   type UpdateProjectInput,
 } from '../schemas';
+import { emit } from '../events/emit';
 
 function nextPosition(db: Db): number {
   const rows = db.select({ position: projects.position }).from(projects).all();
@@ -22,6 +23,7 @@ export const projectService = {
       .values({ ...parsed, position: nextPosition(db) })
       .returning()
       .all();
+    emit('project', row!.id, 'created', { name: row!.name });
     return row!;
   },
 
@@ -50,11 +52,13 @@ export const projectService = {
       .where(eq(projects.id, id))
       .returning()
       .all();
+    emit('project', row!.id, 'updated', { patch });
     return row!;
   },
 
   remove(db: Db, id: string): void {
     projectService.get(db, id);
     db.delete(projects).where(eq(projects.id, id)).run();
+    emit('project', id, 'deleted', {});
   },
 };

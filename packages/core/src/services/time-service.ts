@@ -7,6 +7,7 @@ import type {
   TimeEntryFilter,
   UpdateEntryInput,
 } from '../schemas/time-entry-schema';
+import { emit } from '../events/emit';
 
 function requireTask(db: Db, taskId: string): void {
   const row = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, taskId)).get();
@@ -51,6 +52,7 @@ export const timeService = {
       })
       .returning()
       .all();
+    emit('time_entry', entry!.id, 'started', { taskId: entry!.taskId });
     return entry!;
   },
 
@@ -93,6 +95,10 @@ export const timeService = {
       .where(eq(timeEntries.id, entry.id))
       .returning()
       .all();
+    emit('time_entry', updated!.id, 'stopped', {
+      taskId: updated!.taskId,
+      durationSeconds: updated!.durationSeconds,
+    });
     return updated!;
   },
 
@@ -127,6 +133,10 @@ export const timeService = {
       })
       .returning()
       .all();
+    emit('time_entry', entry!.id, 'logged', {
+      taskId: entry!.taskId,
+      durationSeconds: entry!.durationSeconds,
+    });
     return entry!;
   },
 

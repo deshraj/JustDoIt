@@ -18,6 +18,7 @@ import {
 import { assertValidWindow, spawnNextRecurrence } from './schedule-service';
 import { assertValidRecurrence } from '../recurrence';
 import type { DueFilter } from '../schemas/schedule';
+import { emit } from '../events/emit';
 
 export interface TaskListFilters {
   status?: TaskStatus;
@@ -79,6 +80,7 @@ export const taskService = {
       .values({ ...parsed, position })
       .returning()
       .all();
+    emit('task', row!.id, 'created', { title: row!.title });
     return row!;
   },
 
@@ -145,11 +147,12 @@ export const taskService = {
       .where(eq(tasks.id, id))
       .returning()
       .all();
+    emit('task', row!.id, 'updated', { patch });
     return row!;
   },
 
   setStatus(db: Db, id: string, status: TaskStatus): Task {
-    taskService.get(db, id);
+    const previous = taskService.get(db, id);
     const completedAt = status === 'done' || status === 'cancelled' ? new Date() : null;
     const [row] = db
       .update(tasks)
@@ -157,6 +160,7 @@ export const taskService = {
       .where(eq(tasks.id, id))
       .returning()
       .all();
+    emit('task', row!.id, 'status_changed', { from: previous.status, to: row!.status });
     return row!;
   },
 
@@ -166,12 +170,14 @@ export const taskService = {
     const task = taskService.get(db, id);
     const completed = taskService.setStatus(db, id, 'done');
     spawnNextRecurrence(db, task, now);
+    emit('task', completed.id, 'completed', {});
     return completed;
   },
 
   remove(db: Db, id: string): void {
     taskService.get(db, id);
     db.delete(tasks).where(eq(tasks.id, id)).run();
+    emit('task', id, 'deleted', {});
   },
 
   addSubtask(db: Db, parentId: string, input: CreateTaskInput): Task {
