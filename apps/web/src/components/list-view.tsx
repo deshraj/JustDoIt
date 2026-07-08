@@ -6,6 +6,10 @@ import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
 import { TaskRow } from '@/components/task-row';
 import { BulkActionToolbar } from '@/components/bulk-action-toolbar';
+import { Onboarding } from '@/components/onboarding';
+import { EmptyState } from '@/components/empty-state';
+import { focusQuickAdd } from '@/components/quick-add-bar';
+import { useCreateProject } from '@/hooks/use-projects';
 import {
   ListToolbar,
   parseListSearchParams,
@@ -109,7 +113,8 @@ export function ListView() {
   const searchParams = useSearchParams();
   const { filters, group, sort } = parseListSearchParams(searchParams);
   const { data: tasks, isLoading } = useTasks(filters);
-  const { data: projects } = useProjects();
+  const { data: projects, isLoading: projectsLoading } = useProjects();
+  const createProject = useCreateProject();
 
   const projectNames = useMemo(
     () => new Map((projects ?? []).map((p) => [p.id, p.name])),
@@ -152,7 +157,7 @@ export function ListView() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || projectsLoading) {
     return (
       <div className="flex flex-col gap-2 pt-2">
         <ListToolbar />
@@ -163,16 +168,28 @@ export function ListView() {
     );
   }
 
+  // First-run welcome only when the whole workspace is empty (no tasks *and*
+  // no projects) and the view isn't just filtered down to nothing — an empty
+  // filtered List still gets the plain "no tasks here" EmptyState below.
+  const hasActiveFilters = Object.values(filters).some((v) => v !== undefined);
+  if (flatTasks.length === 0 && (projects ?? []).length === 0 && !hasActiveFilters) {
+    return (
+      <Onboarding
+        onQuickAdd={focusQuickAdd}
+        onCreateSample={() => createProject.mutate({ name: 'My First Project' })}
+      />
+    );
+  }
+
   return (
     <div>
       <ListToolbar />
       {flatTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 py-24 text-center">
-          <p className="text-2xl">No tasks here</p>
-          <p className="text-sm text-muted-foreground">
-            Try clearing a filter, or add something above.
-          </p>
-        </div>
+        <EmptyState
+          title="No tasks here"
+          description="Try clearing a filter, or add something above."
+          action={{ label: 'New task', onClick: focusQuickAdd }}
+        />
       ) : (
         <div
           role="list"
