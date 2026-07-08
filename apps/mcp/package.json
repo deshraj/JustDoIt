@@ -1,0 +1,28 @@
+{
+  "name": "@justdoit/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "justdoit-mcp": "./src/stdio.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/stdio.ts",
+    "start": "tsx src/stdio.ts",
+    "start:http": "tsx src/http.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@justdoit/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
+  }
+}
