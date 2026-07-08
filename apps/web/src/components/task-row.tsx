@@ -36,10 +36,13 @@ export interface TaskRowProps {
   detailHref?: string;
   /** When set, the matched substring of the title is wrapped in <mark> (search results). */
   highlightQuery?: string;
+  /** Multi-select for bulk actions — omit both to hide the select checkbox entirely. */
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function TaskRow(
-  { task, projectName, detailHref, highlightQuery },
+  { task, projectName, detailHref, highlightQuery, selected, onToggleSelect },
   titleRef,
 ) {
   const completeTask = useCompleteTask();
@@ -53,6 +56,14 @@ export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function Task
       data-testid={`task-row-${task.id}`}
       className="group flex items-center gap-3 rounded-md px-2 py-2.5 text-sm transition-colors duration-150 ease-out hover:bg-muted"
     >
+      {onToggleSelect && (
+        <Checkbox
+          aria-label={`Select "${task.title}"`}
+          checked={selected ?? false}
+          onCheckedChange={() => onToggleSelect()}
+        />
+      )}
+
       <Checkbox
         aria-label={isDone ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
         checked={isDone}

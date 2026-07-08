@@ -8,7 +8,7 @@ import {
   type TaskStatus,
   type TaskPriority,
 } from '../db/schema';
-import { NotFoundError, ConflictError } from '../errors';
+import { NotFoundError, ConflictError, ValidationError } from '../errors';
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -41,6 +41,14 @@ export interface TaskListFilters {
    */
   dueFrom?: Date;
   dueTo?: Date;
+}
+
+export interface BulkPatch {
+  status?: TaskStatus;
+  priority?: TaskPriority | null;
+  projectId?: string | null;
+  addTagIds?: string[];
+  removeTagIds?: string[];
 }
 
 function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {
@@ -195,5 +203,60 @@ export const taskService = {
       .where(eq(tasks.parentTaskId, parentId))
       .orderBy(asc(tasks.position), asc(tasks.createdAt))
       .all();
+  },
+
+  /** Apply the same patch to many tasks at once; emits per-task events so
+   * activity log + SSE live sync stay accurate. All ids must exist. */
+  bulkUpdate(db: Db, ids: string[], patch: BulkPatch): Task[] {
+    if (ids.length === 0) throw new ValidationError('bulkUpdate requires at least one id');
+
+    const existing = db.select().from(tasks).where(inArray(tasks.id, ids)).all();
+    const byId = new Map(existing.map((t) => [t.id, t]));
+    const missing = ids.filter((id) => !byId.has(id));
+    if (missing.length) throw new NotFoundError('Task(s)', missing.join(', '));
+
+    const setClause: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() };
+    if (patch.status !== undefined) {
+      setClause.status = patch.status;
+      setClause.completedAt =
+        patch.status === 'done' || patch.status === 'cancelled' ? new Date() : null;
+    }
+    if (patch.priority !== undefined) setClause.priority = patch.priority;
+    if (patch.projectId !== undefined) setClause.projectId = patch.projectId;
+
+    db.update(tasks).set(setClause).where(inArray(tasks.id, ids)).run();
+
+    if (patch.removeTagIds?.length) {
+      for (const id of ids) {
+        db.delete(taskTags)
+          .where(and(eq(taskTags.taskId, id), inArray(taskTags.tagId, patch.removeTagIds)))
+          .run();
+      }
+    }
+    if (patch.addTagIds?.length) {
+      for (const id of ids) {
+        for (const tagId of patch.addTagIds) {
+          db.insert(taskTags).values({ taskId: id, tagId }).onConflictDoNothing().run();
+        }
+      }
+    }
+
+    const updated = db.select().from(tasks).where(inArray(tasks.id, ids)).all();
+    for (const t of updated) {
+      const before = byId.get(t.id)!;
+      if (patch.status !== undefined && before.status !== t.status) {
+        emit('task', t.id, 'status_changed', { from: before.status, to: t.status });
+      }
+      emit('task', t.id, 'updated', { patch });
+    }
+    return updated;
+  },
+
+  /** Hard-delete many tasks at once; emits a `task.deleted` event per id. */
+  bulkDelete(db: Db, ids: string[]): { deleted: number } {
+    if (ids.length === 0) throw new ValidationError('bulkDelete requires at least one id');
+    const deleted = db.delete(tasks).where(inArray(tasks.id, ids)).returning().all();
+    for (const t of deleted) emit('task', t.id, 'deleted', {});
+    return { deleted: deleted.length };
   },
 };

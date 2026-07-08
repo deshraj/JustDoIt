@@ -237,6 +237,29 @@ async function createSubtask(parentId: string, input: CreateTaskInput): Promise<
   return parseTolerant(taskSchema, data, 'task');
 }
 
+export interface BulkTaskPatch {
+  status?: TaskStatus;
+  priority?: TaskPriority | null;
+  projectId?: string | null;
+  addTagIds?: string[];
+  removeTagIds?: string[];
+}
+
+async function bulkUpdateTasks(ids: string[], patch: BulkTaskPatch): Promise<Task[]> {
+  const data = await request<{ tasks: unknown[] }>('/tasks/bulk', {
+    method: 'PATCH',
+    body: json({ ids, patch }),
+  });
+  return data.tasks.map((t) => parseTolerant(taskSchema, t, 'task'));
+}
+
+async function bulkDeleteTasks(ids: string[]): Promise<{ deleted: number }> {
+  return request<{ deleted: number }>('/tasks/bulk-delete', {
+    method: 'POST',
+    body: json({ ids }),
+  });
+}
+
 async function listTaskTags(taskId: string): Promise<Tag[]> {
   const data = await request<unknown[]>(`/tasks/${taskId}/tags`);
   return data.map((t) => parseTolerant(tagSchema, t, 'tag'));
@@ -539,6 +562,8 @@ export const api = {
   completeTask,
   listSubtasks,
   createSubtask,
+  bulkUpdateTasks,
+  bulkDeleteTasks,
   listTaskTags,
   attachTag,
   detachTag,

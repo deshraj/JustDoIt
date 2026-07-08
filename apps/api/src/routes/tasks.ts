@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
 import {
   taskService,
   createTaskSchema,
@@ -9,11 +10,26 @@ import {
   listOverdue,
   listDueToday,
   listUpcoming,
+  TASK_STATUSES,
+  TASK_PRIORITIES,
   type Db,
   type TaskListFilters,
   type TaskStatus,
   type TaskPriority,
 } from '@justdoit/core';
+
+const bulkPatchSchema = z.object({
+  ids: z.array(z.string()).min(1),
+  patch: z.object({
+    status: z.enum(TASK_STATUSES).optional(),
+    priority: z.enum(TASK_PRIORITIES).nullable().optional(),
+    projectId: z.string().nullable().optional(),
+    addTagIds: z.array(z.string()).optional(),
+    removeTagIds: z.array(z.string()).optional(),
+  }),
+});
+
+const bulkDeleteSchema = z.object({ ids: z.array(z.string()).min(1) });
 
 function parseFilters(query: Record<string, string>): TaskListFilters {
   const filters: TaskListFilters = {};
@@ -58,6 +74,18 @@ export function taskRoutes(db: Db): Hono {
   r.post('/', zValidator('json', createTaskSchema), (c) =>
     c.json(taskService.create(db, c.req.valid('json')), 201),
   );
+
+  // Registered before `/:id` so `bulk` / `bulk-delete` aren't swallowed by
+  // the `:id` param matcher.
+  r.patch('/bulk', zValidator('json', bulkPatchSchema), (c) => {
+    const { ids, patch } = c.req.valid('json');
+    return c.json({ tasks: taskService.bulkUpdate(db, ids, patch) });
+  });
+
+  r.post('/bulk-delete', zValidator('json', bulkDeleteSchema), (c) => {
+    const { ids } = c.req.valid('json');
+    return c.json(taskService.bulkDelete(db, ids));
+  });
 
   r.get('/:id', (c) => c.json(taskService.get(db, c.req.param('id'))));
 

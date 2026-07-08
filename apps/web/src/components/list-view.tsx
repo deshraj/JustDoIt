@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useTasks } from '@/hooks/use-tasks';
 import { useProjects } from '@/hooks/use-projects';
 import { TaskRow } from '@/components/task-row';
+import { BulkActionToolbar } from '@/components/bulk-action-toolbar';
 import {
   ListToolbar,
   parseListSearchParams,
@@ -123,6 +124,16 @@ export function ListView() {
   const rowRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const flatTasks = useMemo(() => groups.flatMap((g) => g.tasks), [groups]);
 
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  function toggleSelect(id: string): void {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   function focusRow(index: number): void {
     const clamped = Math.max(0, Math.min(index, flatTasks.length - 1));
     rowRefs.current[clamped]?.focus();
@@ -182,6 +193,8 @@ export function ListView() {
                       key={task.id}
                       task={task}
                       projectName={task.projectId ? projectNames.get(task.projectId) : undefined}
+                      selected={selected.has(task.id)}
+                      onToggleSelect={() => toggleSelect(task.id)}
                       ref={(el) => {
                         rowRefs.current[flatIndex] = el;
                       }}
@@ -193,6 +206,7 @@ export function ListView() {
           ))}
         </div>
       )}
+      <BulkActionToolbar selectedIds={[...selected]} onDone={() => setSelected(new Set())} />
     </div>
   );
 }
