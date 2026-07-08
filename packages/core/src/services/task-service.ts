@@ -176,6 +176,11 @@ export const taskService = {
     // Capture the pre-completion row so the recurrence anchor uses the
     // original recurrence/dueAt, not the post-completion state.
     const task = taskService.get(db, id);
+    // Idempotent: if the task is already terminal, do not re-transition or spawn
+    // another recurrence — otherwise completing twice double-spawns occurrences.
+    if (task.status === 'done' || task.status === 'cancelled') {
+      return task;
+    }
     const completed = taskService.setStatus(db, id, 'done');
     spawnNextRecurrence(db, task, now);
     emit('task', completed.id, 'completed', {});

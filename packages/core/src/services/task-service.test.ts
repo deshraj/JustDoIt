@@ -167,6 +167,44 @@ describe('taskService', () => {
     expect(spawned!.completedAt).toBeNull();
   });
 
+  it('completing a recurring task twice spawns exactly one next occurrence', () => {
+    const now = new Date('2026-03-02T10:00:00Z');
+    const task = taskService.create(db, {
+      title: 'water plants',
+      recurrence: 'FREQ=WEEKLY;BYDAY=MO',
+      dueAt: new Date('2026-03-02T09:00:00Z'), // a Monday
+    });
+    taskService.complete(db, task.id, now);
+    // Second complete on the already-done task must be a no-op for spawning.
+    taskService.complete(db, task.id, now);
+
+    const spawned = taskService
+      .list(db, { status: 'todo' })
+      .filter((t) => t.title === 'water plants' && t.id !== task.id);
+    expect(spawned).toHaveLength(1);
+  });
+
+  it('spawned recurring occurrence carries the source task tags and a fresh position', () => {
+    const now = new Date('2026-03-02T10:00:00Z');
+    const tag = tagService.create(db, { name: 'garden' });
+    const task = taskService.create(db, {
+      title: 'water plants',
+      recurrence: 'FREQ=WEEKLY;BYDAY=MO',
+      dueAt: new Date('2026-03-02T09:00:00Z'),
+    });
+    tagService.attach(db, task.id, tag.id);
+    taskService.complete(db, task.id, now);
+
+    const spawned = taskService
+      .list(db, { status: 'todo' })
+      .find((t) => t.title === 'water plants' && t.id !== task.id);
+    expect(spawned).toBeDefined();
+    // Tags copied onto the new occurrence.
+    expect(taskService.list(db, { tagId: tag.id }).map((t) => t.id)).toContain(spawned!.id);
+    // Fresh position, not a collision with the completed source task.
+    expect(spawned!.position).not.toBe(task.position);
+  });
+
   it('does not spawn for a non-recurring task', () => {
     const now = new Date('2026-03-02T10:00:00Z');
     const task = taskService.create(db, {

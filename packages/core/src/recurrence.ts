@@ -28,9 +28,31 @@ export function assertValidRecurrence(rule: string): void {
 
 export function nextOccurrence(rule: string, after: Date): Date | null {
   const options = RRule.parseString(rule);
-  // Anchor the pattern at `after` so the result is deterministic and
-  // independent of the current wall clock.
-  options.dtstart = after;
+  // rrule matches BYDAY/BYMONTHDAY against a date's *UTC* calendar fields, but our
+  // anchors are absolute instants whose meaningful weekday/day-of-month is the LOCAL
+  // wall-clock one. For an evening task in a western timezone the local weekday and the
+  // UTC weekday differ, so anchoring rrule on the raw instant drifts the match to the
+  // wrong day (e.g. a Monday-evening task lands on Sunday, +6 days instead of +7).
+  //
+  // Fix: build a synthetic UTC instant whose UTC fields equal the anchor's LOCAL fields,
+  // run rrule in that "local-as-UTC" space (where UTC has no DST and the weekday is the
+  // local one), then translate the resulting step back onto the real instant.
+  const localAsUtc = new Date(
+    Date.UTC(
+      after.getFullYear(),
+      after.getMonth(),
+      after.getDate(),
+      after.getHours(),
+      after.getMinutes(),
+      after.getSeconds(),
+      after.getMilliseconds(),
+    ),
+  );
+  options.dtstart = localAsUtc;
   const rrule = new RRule(options);
-  return rrule.after(after, false);
+  const next = rrule.after(localAsUtc, false);
+  if (!next) return null;
+  // The offset from the (local) anchor to the next occurrence, measured in the DST-free
+  // local-as-UTC space, applied back to the real anchor instant.
+  return new Date(after.getTime() + (next.getTime() - localAsUtc.getTime()));
 }

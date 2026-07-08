@@ -1,6 +1,6 @@
-import { and, asc, gt, gte, lt, lte, notInArray } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNull, lt, lte, notInArray } from 'drizzle-orm';
 import type { Db } from '../db';
-import { tasks, type Task } from '../db/schema';
+import { tasks, taskTags, type Task } from '../db/schema';
 import { ValidationError } from '../errors';
 import { nextOccurrence } from '../recurrence';
 
@@ -62,6 +62,21 @@ export function listUpcoming(db: Db, now: Date, days = 7): Task[] {
     .all();
 }
 
+/** Next free position within a project/parent scope (mirrors task-service.create). */
+function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {
+  const rows = db
+    .select({ position: tasks.position })
+    .from(tasks)
+    .where(
+      and(
+        projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId),
+        parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId),
+      ),
+    )
+    .all();
+  return rows.reduce((max, r) => Math.max(max, r.position), 0) + 1;
+}
+
 export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null {
   if (!task.recurrence) return null;
   const anchor = task.dueAt ?? task.startAt ?? now;
@@ -77,7 +92,8 @@ export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null 
       priority: task.priority,
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
-      position: task.position,
+      // Fresh position so the new occurrence doesn't collide with the completed one.
+      position: nextPosition(db, task.projectId, task.parentTaskId),
       estimateMinutes: task.estimateMinutes,
       recurrence: task.recurrence,
       dueAt: task.dueAt ? new Date(task.dueAt.getTime() + delta) : null,
@@ -86,5 +102,17 @@ export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null 
     })
     .returning()
     .all();
-  return created ?? null;
+  if (!created) return null;
+  // Carry the source task's tag associations onto the new occurrence.
+  const sourceTags = db
+    .select({ tagId: taskTags.tagId })
+    .from(taskTags)
+    .where(eq(taskTags.taskId, task.id))
+    .all();
+  if (sourceTags.length) {
+    db.insert(taskTags)
+      .values(sourceTags.map((t) => ({ taskId: created.id, tagId: t.tagId })))
+      .run();
+  }
+  return created;
 }

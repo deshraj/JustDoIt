@@ -30,4 +30,18 @@ describe('recurrence', () => {
     const after = new Date('2026-01-05T09:00:00Z');
     expect(nextOccurrence('FREQ=DAILY;COUNT=1', after)).toBeNull();
   });
+
+  it('matches BYDAY against LOCAL wall-clock, not UTC, for evening anchors', () => {
+    // Monday 2026-01-05 at 21:00 LOCAL time. In a western timezone (e.g. US
+    // Eastern/Pacific) this instant falls on Tuesday in UTC, so UTC-based BYDAY
+    // matching would drift the next MO to +6 days landing on a Sunday locally.
+    const anchor = new Date(2026, 0, 5, 21, 0, 0); // local Monday 9pm
+    expect(anchor.getDay()).toBe(1); // sanity: Monday in local time
+    const next = nextOccurrence('FREQ=WEEKLY;BYDAY=MO', anchor);
+    expect(next).not.toBeNull();
+    // Next weekly Monday is exactly +7 days later and still a Monday locally.
+    const deltaDays = (next!.getTime() - anchor.getTime()) / (24 * 60 * 60 * 1000);
+    expect(deltaDays).toBe(7);
+    expect(next!.getDay()).toBe(1);
+  });
 });
