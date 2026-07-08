@@ -24,3 +24,10 @@ Phase 3: complete (commits 45d6a69..646d978, 128 tests, gates green, no concerns
 Phase 4: complete (merged worktree, commits 4bd74ff..42830e0, 28 mcp tests, 156 total, gates green). SDK 1.29.0; MCP uses core real filter surface; also fixed pre-existing rrule CJS/ESM interop in core/recurrence.ts (unblocks tsx boot). Controller added .next/.claude to lint+prettier ignores and .next to gitignore.
 Phase 5: complete (merged worktree, commits 6467a1c..a9589c2, 176 tests + Playwright 3/3, gates green). Added 4 backend gap-fixes (CORS, task-tags routes, due-range filter, rrule). Merge reconciled recurrence.ts/gitignore/eslint/lockfile. frontend-design skill was unavailable; tokens derived from plan constraints.
 Phase 6: complete (commits 6245929..08e8fd0, 251 tests total, gates green, web build OK, SSE smoke-tested). ALL PHASES DONE.
+
+## Whole-branch review + fixes (final)
+
+- 4 parallel scoped reviewers (core/api/mcp/web). Findings: mcp had 2 Critical (single-client HTTP transport; z.coerce.date null->1970 corruption), plus Important across all pkgs.
+- 4 parallel fix agents applied Critical+Important+cheap Minors, each TDD, scoped per package.
+- Final gates: 306 tests (core 124, api 52, mcp 40, web 90), typecheck/lint/format green, web build OK, API runtime smoke (quick-add NL parse) verified.
+- ALL PHASES COMPLETE + REVIEWED + FIXED.
