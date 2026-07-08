@@ -4,9 +4,7 @@ import { taskService, projectService, listOverdue, listDueToday, type Db } from 
 
 function jsonContents(uri: string, value: unknown) {
   return {
-    contents: [
-      { uri, mimeType: 'application/json', text: JSON.stringify(value ?? null, null, 2) },
-    ],
+    contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(value ?? null, null, 2) }],
   };
 }
 

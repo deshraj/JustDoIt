@@ -1,5 +1,15 @@
-import { RRule } from 'rrule';
+// `rrule` ships CJS only (no `exports` map; `main` -> `dist/es5/rrule.js`) and its
+// CJS build isn't statically analyzable by Node's cjs-module-lexer, so a named ESM
+// import (`import { RRule } from 'rrule'`) fails under plain Node/tsx with
+// "does not provide an export named 'RRule'" — it only worked under vitest because
+// vite-node's CJS interop doesn't rely on that static analysis. A default import of
+// a CJS module always binds to the full `module.exports` object regardless of lexer
+// detection, so destructuring from that (a plain runtime property access, not an ES
+// import binding) is interop-safe everywhere.
+import rrulePkg from 'rrule';
 import { ValidationError } from './errors';
+
+const { RRule } = rrulePkg;
 
 export function isValidRecurrence(rule: string): boolean {
   try {

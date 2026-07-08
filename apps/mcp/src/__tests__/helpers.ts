@@ -29,8 +29,7 @@ export async function makeClient(db: Db) {
  * returns the modern `content` shape.
  */
 export function firstJson(result: unknown): unknown {
-  const content = (result as { content?: { type: string; text?: string }[] } | undefined)
-    ?.content;
+  const content = (result as { content?: { type: string; text?: string }[] } | undefined)?.content;
   const block = content?.find((c) => c.type === 'text');
   return block?.text ? JSON.parse(block.text) : undefined;
 }

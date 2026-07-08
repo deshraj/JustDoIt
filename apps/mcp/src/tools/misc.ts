@@ -10,8 +10,7 @@ export function registerMiscTools(server: McpServer, db: Db): void {
     'quick_add',
     {
       title: 'Quick add',
-      description:
-        'Create a task from natural language, e.g. "buy milk tomorrow 5pm #errands p1".',
+      description: 'Create a task from natural language, e.g. "buy milk tomorrow 5pm #errands p1".',
       inputSchema: { text: z.string().min(1) },
     },
     ({ text }) => guard(() => quickAddService.create(db, text, new Date())),

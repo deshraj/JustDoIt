@@ -170,7 +170,6 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Full-text search over task title/description.',
       inputSchema: { q: z.string().min(1), limit: z.number().int().positive().optional() },
     },
-    ({ q, limit }) =>
-      guard(() => applyLimit(taskService.list(db, { search: q }), limit)),
+    ({ q, limit }) => guard(() => applyLimit(taskService.list(db, { search: q }), limit)),
   );
 }
