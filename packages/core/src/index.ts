@@ -7,3 +7,5 @@ export * from './schemas/report-schema';
 export * from './services/time-service';
 export * from './services/report-service';
 export * from './recurrence';
+export * from './schemas/schedule';
+export * from './services/schedule-service';
