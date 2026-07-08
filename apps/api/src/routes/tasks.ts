@@ -28,6 +28,8 @@ function parseFilters(query: Record<string, string>): TaskListFilters {
     filters.parentTaskId = query.parent_task_id === 'none' ? null : query.parent_task_id;
   }
   if (query.archived !== undefined) filters.archived = query.archived === 'true';
+  if (query.due_from) filters.dueFrom = new Date(query.due_from);
+  if (query.due_to) filters.dueTo = new Date(query.due_to);
   const due = dueFilterSchema.safeParse(query.due);
   if (due.success) filters.due = due.data;
   return filters;

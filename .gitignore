@@ -11,3 +11,6 @@ dist/
 .next/
 next-env.d.ts
 .claude/
+test-results/
+playwright-report/
+blob-report/

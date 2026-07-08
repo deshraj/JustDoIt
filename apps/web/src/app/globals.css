@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Neutral ramp: zinc. Accent: indigo. See tailwind.config.ts for mapping. */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 239 84% 67%; /* indigo-500 */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 4.8% 95.9%; /* zinc-100 */
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%; /* zinc-100 */
+    --muted-foreground: 240 3.8% 46.1%; /* zinc-500 */
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 350 89% 60%; /* rose-500 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 5.9% 90%; /* zinc-200, used sparingly */
+    --input: 240 5.9% 90%;
+    --ring: 239 84% 67%; /* indigo-500 */
+
+    /* Semantic status hues — small dots/pills only, never full-bleed fills. */
+    --status-backlog: 240 4.9% 83.9%; /* zinc-300 */
+    --status-todo: 240 5% 64.9%; /* zinc-400 */
+    --status-progress: 239 84% 67%; /* indigo-500 */
+    --status-blocked: 350 89% 60%; /* rose-500 */
+    --status-done: 160 84% 39%; /* emerald-500 */
+    --status-cancelled: 240 5% 64.9%; /* zinc-400 */
+
+    /* Semantic priority hues, p0 = urgent .. p3 = low. */
+    --priority-p0: 350 89% 60%; /* rose-500 */
+    --priority-p1: 38 92% 50%; /* amber-500 */
+    --priority-p2: 199 89% 48%; /* sky-500 */
+    --priority-p3: 240 5% 64.9%; /* zinc-400 */
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%; /* zinc-950 */
+    --foreground: 240 4.8% 95.9%; /* zinc-100 */
+
+    --card: 240 5.9% 10%; /* zinc-900 */
+    --card-foreground: 240 4.8% 95.9%;
+    --popover: 240 5.9% 10%;
+    --popover-foreground: 240 4.8% 95.9%;
+
+    --primary: 234 89% 74%; /* indigo-400, lighter for dark contrast */
+    --primary-foreground: 240 10% 3.9%;
+
+    --secondary: 240 3.7% 15.9%; /* zinc-800 */
+    --secondary-foreground: 240 4.8% 95.9%;
+
+    --muted: 240 3.7% 15.9%; /* zinc-800: elevation instead of borders */
+    --muted-foreground: 240 5% 64.9%; /* zinc-400 */
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 240 4.8% 95.9%;
+
+    --destructive: 350 89% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 3.7% 15.9%; /* zinc-800, rarely used */
+    --input: 240 3.7% 15.9%;
+    --ring: 234 89% 74%; /* indigo-400 */
+
+    --status-backlog: 240 5.2% 33.9%; /* zinc-600 */
+    --status-todo: 240 5% 64.9%; /* zinc-400 */
+    --status-progress: 234 89% 74%; /* indigo-400 */
+    --status-blocked: 351 95% 71%; /* rose-400 */
+    --status-done: 156 72% 67%; /* emerald-400 */
+    --status-cancelled: 240 5% 64.9%;
+
+    --priority-p0: 351 95% 71%;
+    --priority-p1: 43 96% 56%;
+    --priority-p2: 199 95% 74%;
+    --priority-p3: 240 5% 64.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground text-sm antialiased;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
+  }
+
+  /* Keyboard-first: every interactive element gets a visible focus ring. */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background rounded-sm;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* react-day-picker v9 theming via its documented CSS custom properties. */
+.rdp-root {
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-accent-background-color: hsl(var(--muted));
+  --rdp-today-color: hsl(var(--primary));
+  --rdp-day-height: 2.25rem;
+  --rdp-day-width: 2.25rem;
+  --rdp-day_button-height: 2rem;
+  --rdp-day_button-width: 2rem;
+  --rdp-nav_button-height: 1.75rem;
+  --rdp-nav_button-width: 1.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

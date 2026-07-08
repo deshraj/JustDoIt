@@ -1,4 +1,4 @@
-import { and, or, eq, asc, isNull, like, inArray, type SQL } from 'drizzle-orm';
+import { and, or, eq, gte, lte, asc, isNull, like, inArray, type SQL } from 'drizzle-orm';
 import type { Db } from '../db';
 import {
   tasks,
@@ -32,6 +32,14 @@ export interface TaskListFilters {
   // (see apps/api/src/routes/tasks.ts). Kept on the shared filter shape so
   // callers (REST, future MCP) have one canonical task-list query surface.
   due?: DueFilter;
+  /**
+   * Arbitrary due-date window (inclusive), independent of `due` above —
+   * `due` is relative to "now" (overdue/today/upcoming); this is an absolute
+   * range used by callers like the web Calendar view to page through
+   * specific months. Exposed over REST as `due_from`/`due_to`.
+   */
+  dueFrom?: Date;
+  dueTo?: Date;
 }
 
 function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {
@@ -99,6 +107,8 @@ export const taskService = {
       );
     }
     if (filters.archived !== undefined) conditions.push(eq(tasks.archived, filters.archived));
+    if (filters.dueFrom) conditions.push(gte(tasks.dueAt, filters.dueFrom));
+    if (filters.dueTo) conditions.push(lte(tasks.dueAt, filters.dueTo));
     if (filters.search) {
       const needle = `%${filters.search}%`;
       conditions.push(or(like(tasks.title, needle), like(tasks.description, needle))!);
