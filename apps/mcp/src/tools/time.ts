@@ -3,7 +3,9 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { timeService, reportService, timeReportQuerySchema, type Db } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
-const isoDate = z.coerce.date();
+// Restrict to string/number/Date so a bare `null` is rejected rather than
+// silently coerced to 1970-01-01 by `z.coerce.date()` (`new Date(null)`).
+const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
 export function registerTimeTools(server: McpServer, db: Db): void {
   server.registerTool(
@@ -35,7 +37,9 @@ export function registerTimeTools(server: McpServer, db: Db): void {
         '(minutes x 60) by the handler; `startedAt` defaults to now if omitted.',
       inputSchema: {
         taskId: z.string(),
-        minutes: z.number().int().positive(),
+        // Core allows a zero-duration entry (`durationSeconds` is nonnegative), so
+        // mirror that here rather than requiring `.positive()`.
+        minutes: z.number().int().nonnegative(),
         startedAt: isoDate.optional(),
         note: z.string().optional(),
       },
