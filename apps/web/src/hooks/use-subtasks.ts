@@ -16,6 +16,12 @@ export function useCreateSubtask(taskId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: CreateTaskInput) => api.createSubtask(taskId, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.tasks.subtasks(taskId) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.tasks.subtasks(taskId) });
+      // A subtask is still a task, so List/Board (which read from the
+      // ['tasks'] prefix) need to refetch too, or the new item won't show
+      // up there until an unrelated invalidation happens to occur.
+      qc.invalidateQueries({ queryKey: qk.tasks.all });
+    },
   });
 }
