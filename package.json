@@ -8,6 +8,7 @@
   "scripts": {
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "dev": "turbo dev",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
