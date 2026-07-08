@@ -6,6 +6,7 @@ import { useLiveSync } from './use-live-sync';
 class FakeEventSource {
   static last: FakeEventSource | null = null;
   onmessage: ((e: { data: string }) => void) | null = null;
+  onerror: ((e: Event) => void) | null = null;
   close = vi.fn();
   #listeners = new Map<string, (e: { data: string }) => void>();
   constructor(public url: string) {
@@ -62,6 +63,20 @@ describe('useLiveSync', () => {
         at: 1,
       }),
     });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['projects'] });
+  });
+
+  it('wires an onerror handler that invalidates tasks and projects to catch up after a reconnect', () => {
+    const qc = new QueryClient();
+    const spy = vi.spyOn(qc, 'invalidateQueries');
+    renderHook(() => useLiveSync(), {
+      wrapper: ({ children }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>,
+    });
+
+    expect(FakeEventSource.last!.onerror).toBeInstanceOf(Function);
+    FakeEventSource.last!.onerror!(new Event('error'));
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['tasks'] });
     expect(spy).toHaveBeenCalledWith({ queryKey: ['projects'] });
   });
 

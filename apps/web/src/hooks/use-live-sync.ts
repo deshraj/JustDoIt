@@ -56,6 +56,15 @@ export function useLiveSync(): void {
     source.addEventListener('change', handle as EventListener);
     source.onmessage = handle;
 
+    // A native EventSource auto-reconnects after a transient network drop,
+    // but any change events published while disconnected are lost — there's
+    // no way to replay them individually, so do a broad invalidate as a
+    // catch-up once the connection comes back (or looks like it's about to).
+    source.onerror = () => {
+      qc.invalidateQueries({ queryKey: qk.tasks.all });
+      qc.invalidateQueries({ queryKey: qk.projects.all });
+    };
+
     return () => source.close();
   }, [qc]);
 }
