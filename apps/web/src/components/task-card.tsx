@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Task } from '@/lib/api';
+import { useTaskTags } from '@/hooks/use-tags';
 import { Badge } from '@/components/ui/badge';
+import { TagPills } from '@/components/tag-pills';
 import { cn, formatDueDate, isOverdue } from '@/lib/utils';
 
 const PRIORITY_DOT: Record<NonNullable<Task['priority']>, string> = {
@@ -18,6 +20,7 @@ export function TaskCard({ task, projectName }: { task: Task; projectName?: stri
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
   });
+  const { data: tags } = useTaskTags(task.id);
   const overdue = task.dueAt != null && task.status !== 'done' && isOverdue(task.dueAt);
 
   return (
@@ -61,6 +64,7 @@ export function TaskCard({ task, projectName }: { task: Task; projectName?: stri
           )}
         </div>
       )}
+      {tags && tags.length > 0 && <TagPills tags={tags} />}
     </div>
   );
 }

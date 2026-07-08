@@ -4,8 +4,10 @@ import { forwardRef } from 'react';
 import Link from 'next/link';
 import type { Task } from '@/lib/api';
 import { useCompleteTask, useSetTaskStatus } from '@/hooks/use-tasks';
+import { useTaskTags } from '@/hooks/use-tags';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { TagPills } from '@/components/tag-pills';
 import { cn, formatDueDate, isOverdue } from '@/lib/utils';
 
 const PRIORITY_DOT: Record<NonNullable<Task['priority']>, string> = {
@@ -47,6 +49,7 @@ export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function Task
 ) {
   const completeTask = useCompleteTask();
   const setStatus = useSetTaskStatus();
+  const { data: tags } = useTaskTags(task.id);
   const isDone = task.status === 'done';
   const overdue = task.dueAt != null && !isDone && isOverdue(task.dueAt);
 
@@ -91,6 +94,8 @@ export const TaskRow = forwardRef<HTMLAnchorElement, TaskRowProps>(function Task
       >
         <HighlightedText text={task.title} query={highlightQuery} />
       </Link>
+
+      {tags && tags.length > 0 && <TagPills tags={tags} />}
 
       {task.dueAt && (
         <span

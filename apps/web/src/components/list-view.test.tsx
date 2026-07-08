@@ -27,6 +27,7 @@ vi.mock('@/lib/api', () => ({
     listSavedFilters: vi.fn().mockResolvedValue([]),
     createSavedFilter: vi.fn().mockResolvedValue({}),
     deleteSavedFilter: vi.fn().mockResolvedValue(undefined),
+    listTaskTags: vi.fn().mockResolvedValue([]),
   },
 }));
 

@@ -14,7 +14,7 @@ vi.mock('next/navigation', () => ({
 
 const search = vi.fn();
 vi.mock('@/lib/api', () => ({
-  api: { search: (...a: unknown[]) => search(...a) },
+  api: { search: (...a: unknown[]) => search(...a), listTaskTags: vi.fn().mockResolvedValue([]) },
 }));
 
 function makeTask(overrides: Partial<Task>): Task {
