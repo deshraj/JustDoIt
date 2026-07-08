@@ -9,6 +9,7 @@ import { searchRoutes } from './routes/search';
 import { quickAddRoutes } from './routes/quick-add';
 import { transferRoutes } from './routes/transfer';
 import { timeRoutes } from './routes/time-entries';
+import { reportRoutes } from './routes/reports';
 
 export function createApp(db: Db): Hono {
   const app = new Hono();
@@ -21,5 +22,6 @@ export function createApp(db: Db): Hono {
   app.route('/', quickAddRoutes(db));
   app.route('/', transferRoutes(db));
   app.route('/', timeRoutes(db));
+  app.route('/', reportRoutes(db));
   return app;
 }

@@ -66,15 +66,13 @@ export const timeEntryFilterSchema = z
     limit: z.coerce.number().int().positive().max(500).optional(),
     offset: z.coerce.number().int().nonnegative().optional(),
   })
-  .transform(
-    (v): TimeEntryFilter => ({
-      taskId: v.task_id,
-      projectId: v.project_id,
-      from: v.from,
-      to: v.to,
-      source: v.source,
-      running: v.running === undefined ? undefined : v.running === 'true',
-      limit: v.limit,
-      offset: v.offset,
-    }),
-  );
+  .transform((v): TimeEntryFilter => ({
+    taskId: v.task_id,
+    projectId: v.project_id,
+    from: v.from,
+    to: v.to,
+    source: v.source,
+    running: v.running === undefined ? undefined : v.running === 'true',
+    limit: v.limit,
+    offset: v.offset,
+  }));
