@@ -1,5 +1,12 @@
-import { RRule } from 'rrule';
+// `rrule`'s CJS build isn't statically analyzable by Node's ESM loader (its
+// named exports aren't detected under `import { RRule } from 'rrule'`, which
+// crashes real `node`/`tsx` runs with "does not provide an export named
+// RRule" even though it works fine under Vitest/bundlers). Import the whole
+// CJS module object and destructure at runtime instead — safe everywhere.
+import rrulePkg from 'rrule';
 import { ValidationError } from './errors';
+
+const { RRule } = rrulePkg;
 
 export function isValidRecurrence(rule: string): boolean {
   try {

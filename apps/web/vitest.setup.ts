@@ -36,3 +36,25 @@ vi.stubGlobal(
     dispatchEvent: vi.fn(),
   })),
 );
+
+// Radix primitives (Select, Popover, Dialog, Dropdown...) probe these DOM
+// APIs, none of which jsdom implements.
+class MockResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+if (!Element.prototype.hasPointerCapture) {
+  Element.prototype.hasPointerCapture = () => false;
+}
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = () => {};
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = () => {};
+}
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
