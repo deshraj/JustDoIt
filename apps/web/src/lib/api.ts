@@ -16,6 +16,7 @@ import {
   type TimeEntry,
   type TimeEntrySource,
   type TimeReport,
+  type TimeReportBucket,
 } from './schemas';
 
 /**
@@ -32,6 +33,7 @@ export type {
   TimeEntry,
   Reminder,
   TimeReport,
+  TimeReportBucket,
   TaskStatus,
   TaskPriority,
   EstimateVsActual,

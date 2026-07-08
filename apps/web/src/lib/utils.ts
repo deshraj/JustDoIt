@@ -39,3 +39,13 @@ export const STATUS_LABELS: Record<
   done: 'Done',
   cancelled: 'Cancelled',
 };
+
+/** Compact duration label from a second count: "2h 15m", "45m", "0m". */
+export function formatDuration(totalSeconds: number): string {
+  const totalMinutes = Math.round(totalSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
