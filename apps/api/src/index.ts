@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { createDb, runMigrations } from '@justdoit/core';
 import { createApp } from './app';
+import { startReminderScheduler } from './scheduler';
 
 const dbUrl = process.env.JUSTDOIT_DB ?? 'justdoit.db';
 const { db } = createDb(dbUrl);
@@ -11,3 +12,7 @@ const port = Number(process.env.JUSTDOIT_API_PORT ?? 8787);
 
 serve({ fetch: app.fetch, port });
 console.log(`justdoit API listening on http://localhost:${port} (db: ${dbUrl})`);
+
+if (process.env.JUSTDOIT_DISABLE_SCHEDULER !== '1') {
+  startReminderScheduler({ db });
+}
