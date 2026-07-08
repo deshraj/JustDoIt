@@ -15,6 +15,11 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
 beforeEach(() => {
   listSavedFilters
     .mockReset()
@@ -23,6 +28,7 @@ beforeEach(() => {
     ]);
   createSavedFilter.mockReset().mockResolvedValue({});
   deleteSavedFilter.mockReset().mockResolvedValue(undefined);
+  toastError.mockClear();
 });
 
 function wrap(ui: React.ReactNode) {
@@ -49,5 +55,26 @@ describe('SavedFiltersMenu', () => {
         query: { status: 'done' },
       }),
     );
+  });
+
+  it('shows an error toast when saving the current view fails', async () => {
+    createSavedFilter.mockReset().mockRejectedValue(new Error('server error'));
+    wrap(<SavedFiltersMenu current={{ status: 'done' }} onApply={() => {}} />);
+
+    const input = await screen.findByLabelText('Saved view name');
+    fireEvent.change(input, { target: { value: 'My view' } });
+    fireEvent.click(screen.getByRole('button', { name: /save view/i }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+  });
+
+  it('shows an error toast when deleting a saved view fails', async () => {
+    deleteSavedFilter.mockReset().mockRejectedValue(new Error('server error'));
+    wrap(<SavedFiltersMenu current={{}} onApply={() => {}} />);
+
+    const deleteBtn = await screen.findByRole('button', { name: 'Delete Today' });
+    fireEvent.click(deleteBtn);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
   });
 });

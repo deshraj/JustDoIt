@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api, type CreateSavedFilterInput } from '@/lib/api';
 import { qk } from '@/lib/query-keys';
 
@@ -16,6 +17,7 @@ export function useCreateSavedFilter() {
   return useMutation({
     mutationFn: (input: CreateSavedFilterInput) => api.createSavedFilter(input),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.savedFilters.all }),
+    onError: () => toast.error('Could not save that view — try again.'),
   });
 }
 
@@ -24,5 +26,6 @@ export function useDeleteSavedFilter() {
   return useMutation({
     mutationFn: (id: string) => api.deleteSavedFilter(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.savedFilters.all }),
+    onError: () => toast.error('Could not delete that saved view — try again.'),
   });
 }

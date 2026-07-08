@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api, type Tag } from '@/lib/api';
 import { qk } from '@/lib/query-keys';
 
@@ -13,6 +14,7 @@ export function useCreateTag() {
   return useMutation({
     mutationFn: (name: string) => api.createTag({ name }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.tags.all }),
+    onError: () => toast.error('Could not create that tag — try again.'),
   });
 }
 
@@ -29,6 +31,7 @@ export function useAttachTag(taskId: string) {
   return useMutation({
     mutationFn: (tagId: string) => api.attachTag(taskId, tagId),
     onSuccess: (tags: Tag[]) => qc.setQueryData(qk.tasks.tags(taskId), tags),
+    onError: () => toast.error('Could not add that tag — try again.'),
   });
 }
 
@@ -37,5 +40,6 @@ export function useDetachTag(taskId: string) {
   return useMutation({
     mutationFn: (tagId: string) => api.detachTag(taskId, tagId),
     onSuccess: (tags: Tag[]) => qc.setQueryData(qk.tasks.tags(taskId), tags),
+    onError: () => toast.error('Could not remove that tag — try again.'),
   });
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { InlineTimer } from './inline-timer';
@@ -16,6 +16,11 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
 function renderTimer(taskId = 't1') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -30,6 +35,7 @@ describe('InlineTimer', () => {
     listTimeEntries.mockReset();
     startTimer.mockClear();
     stopTimer.mockClear();
+    toastError.mockClear();
   });
 
   afterEach(() => {
@@ -78,5 +84,17 @@ describe('InlineTimer', () => {
     await user.keyboard('{Enter}');
 
     expect(stopTimer).toHaveBeenCalledWith('t1');
+  });
+
+  it('shows an error toast when starting the timer fails', async () => {
+    listTimeEntries.mockResolvedValue([]);
+    startTimer.mockRejectedValueOnce(new Error('server error'));
+    const user = userEvent.setup();
+    renderTimer('t1');
+
+    const startButton = await screen.findByRole('button', { name: /start/i });
+    await user.click(startButton);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
   });
 });

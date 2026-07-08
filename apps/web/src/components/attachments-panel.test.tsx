@@ -17,7 +17,13 @@ vi.mock('@/lib/api', () => ({
   apiUrl: (path: string) => `http://localhost:8787${path}`,
 }));
 
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
 beforeEach(() => {
+  toastError.mockClear();
   listAttachments.mockReset().mockResolvedValue([
     {
       id: 'a1',
@@ -71,5 +77,28 @@ describe('AttachmentsPanel', () => {
     const deleteBtn = await screen.findByRole('button', { name: /delete note\.txt/i });
     await user.click(deleteBtn);
     expect(deleteAttachment).toHaveBeenCalledWith('a1');
+  });
+
+  it('shows an error toast when the upload fails', async () => {
+    uploadAttachment.mockReset().mockRejectedValue(new Error('too big'));
+    const user = userEvent.setup();
+    wrap(<AttachmentsPanel taskId="t" />);
+    await screen.findByRole('link', { name: /note\.txt/i });
+
+    const file = new File(['hi'], 'hi.txt', { type: 'text/plain' });
+    const input = screen.getByLabelText(/add attachment/i, { selector: 'input' });
+    await user.upload(input, file);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+  });
+
+  it('shows an error toast when the delete fails', async () => {
+    deleteAttachment.mockReset().mockRejectedValue(new Error('not found'));
+    const user = userEvent.setup();
+    wrap(<AttachmentsPanel taskId="t" />);
+    const deleteBtn = await screen.findByRole('button', { name: /delete note\.txt/i });
+    await user.click(deleteBtn);
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
   });
 });

@@ -13,9 +13,15 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
+const toastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: { error: (...a: unknown[]) => toastError(...a) },
+}));
+
 beforeEach(() => {
   bulkUpdateTasks.mockReset().mockResolvedValue([]);
   bulkDeleteTasks.mockReset().mockResolvedValue({ deleted: 2 });
+  toastError.mockClear();
 });
 
 function wrap(ui: React.ReactNode) {
@@ -43,5 +49,14 @@ describe('BulkActionToolbar', () => {
   it('renders nothing when there is no selection', () => {
     const { container } = wrap(<BulkActionToolbar selectedIds={[]} onDone={() => {}} />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('shows an error toast when the bulk delete request fails', async () => {
+    bulkDeleteTasks.mockReset().mockRejectedValue(new Error('network down'));
+    wrap(<BulkActionToolbar selectedIds={['a', 'b']} onDone={() => {}} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { qk } from '@/lib/query-keys';
 
@@ -25,6 +26,7 @@ export function useStartTimer(taskId: string) {
       qc.invalidateQueries({ queryKey: qk.timeEntries.all });
       qc.invalidateQueries({ queryKey: qk.tasks.all });
     },
+    onError: () => toast.error('Could not start the timer — try again.'),
   });
 }
 
@@ -36,5 +38,6 @@ export function useStopTimer(taskId: string) {
       qc.invalidateQueries({ queryKey: qk.timeEntries.all });
       qc.invalidateQueries({ queryKey: qk.tasks.all });
     },
+    onError: () => toast.error('Could not stop the timer — try again.'),
   });
 }
