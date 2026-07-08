@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations, tasks } from '@justdoit/core';
+import { createDb, runMigrations, tasks, projects } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TaskJson {
@@ -145,5 +145,47 @@ describe('tasks routes', () => {
       'inside range',
       'on dueTo boundary',
     ]);
+  });
+
+  it('composes due=today with other filters (project_id)', async () => {
+    const { db } = createDb(':memory:');
+    runMigrations(db);
+    const a = createApp(db);
+    const [projA] = db
+      .insert(projects)
+      .values({ name: 'A', color: '#111111', position: 1 })
+      .returning()
+      .all();
+    const [projB] = db
+      .insert(projects)
+      .values({ name: 'B', color: '#222222', position: 2 })
+      .returning()
+      .all();
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    db.insert(tasks).values({ title: 'A today', dueAt: today, projectId: projA!.id }).run();
+    db.insert(tasks).values({ title: 'B today', dueAt: today, projectId: projB!.id }).run();
+
+    const res = await a.request(`/tasks?due=today&project_id=${projA!.id}`);
+    const body = (await res.json()) as TaskJson[];
+    expect(body.map((t) => t.title)).toEqual(['A today']);
+  });
+
+  it('400s on an invalid due value', async () => {
+    const a = app();
+    const res = await a.request('/tasks?due=someday');
+    expect(res.status).toBe(400);
+  });
+
+  it('400s on an invalid due_from date', async () => {
+    const a = app();
+    const res = await a.request('/tasks?due_from=not-a-date');
+    expect(res.status).toBe(400);
+  });
+
+  it('400s on a non-positive days value', async () => {
+    const a = app();
+    const res = await a.request('/tasks?due=upcoming&days=-3');
+    expect(res.status).toBe(400);
   });
 });

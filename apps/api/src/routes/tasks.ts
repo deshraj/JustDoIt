@@ -12,6 +12,7 @@ import {
   listUpcoming,
   TASK_STATUSES,
   TASK_PRIORITIES,
+  ValidationError,
   type Db,
   type TaskListFilters,
   type TaskStatus,
@@ -31,7 +32,30 @@ const bulkPatchSchema = z.object({
 
 const bulkDeleteSchema = z.object({ ids: z.array(z.string()).min(1) });
 
-function parseFilters(query: Record<string, string>): TaskListFilters {
+// Validated shape of the schedule-related query params. Unlike the free-form
+// string filters, these must parse cleanly (a bad `due`, `due_from`, `due_to`,
+// or `days` is a 400, not a silently-ignored value).
+const listQuerySchema = z.object({
+  due: dueFilterSchema.optional(),
+  due_from: z.coerce.date().optional(),
+  due_to: z.coerce.date().optional(),
+  days: z.coerce.number().int().positive().optional(),
+});
+
+type ListQuery = z.infer<typeof listQuerySchema>;
+
+function parseListQuery(query: Record<string, string>): ListQuery {
+  const parsed = listQuerySchema.safeParse(query);
+  if (!parsed.success) {
+    const detail = parsed.error.issues
+      .map((i) => `${i.path.join('.') || 'query'}: ${i.message}`)
+      .join('; ');
+    throw new ValidationError(`Invalid list query: ${detail}`);
+  }
+  return parsed.data;
+}
+
+function parseFilters(query: Record<string, string>, valid: ListQuery): TaskListFilters {
   const filters: TaskListFilters = {};
   if (query.status) filters.status = query.status as TaskStatus;
   if (query.priority) filters.priority = query.priority as TaskPriority;
@@ -44,10 +68,9 @@ function parseFilters(query: Record<string, string>): TaskListFilters {
     filters.parentTaskId = query.parent_task_id === 'none' ? null : query.parent_task_id;
   }
   if (query.archived !== undefined) filters.archived = query.archived === 'true';
-  if (query.due_from) filters.dueFrom = new Date(query.due_from);
-  if (query.due_to) filters.dueTo = new Date(query.due_to);
-  const due = dueFilterSchema.safeParse(query.due);
-  if (due.success) filters.due = due.data;
+  if (valid.due_from) filters.dueFrom = valid.due_from;
+  if (valid.due_to) filters.dueTo = valid.due_to;
+  if (valid.due) filters.due = valid.due;
   return filters;
 }
 
@@ -56,17 +79,23 @@ export function taskRoutes(db: Db): Hono {
 
   r.get('/', (c) => {
     const query = c.req.query();
-    const filters = parseFilters(query);
+    const valid = parseListQuery(query);
+    const filters = parseFilters(query, valid);
     if (filters.due) {
       const now = new Date();
-      const days = query.days ? Number(query.days) : 7;
-      const result =
+      const days = valid.days ?? 7;
+      const window =
         filters.due === 'overdue'
           ? listOverdue(db, now)
           : filters.due === 'today'
             ? listDueToday(db, now)
             : listUpcoming(db, now, days);
-      return c.json(result);
+      // The relative `due` window is a separate query from `taskService.list`,
+      // so compose them: intersect the window with the tasks matching the
+      // remaining filters (status/priority/project/parent/archived/search/
+      // due_from/due_to/tag) instead of dropping those filters silently.
+      const allowed = new Set(taskService.list(db, filters).map((t) => t.id));
+      return c.json(window.filter((t) => allowed.has(t.id)));
     }
     return c.json(taskService.list(db, filters));
   });
