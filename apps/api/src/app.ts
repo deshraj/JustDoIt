@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import type { Db } from '@justdoit/core';
 import { errorHandler } from './middleware/error';
 import { healthRoutes } from './routes/health';
@@ -16,6 +17,18 @@ import { reminderRoutes } from './routes/reminders';
 export function createApp(db: Db): Hono {
   const app = new Hono();
   app.onError(errorHandler);
+  // apps/web is a browser client on a different origin/port (Next dev on
+  // :3000 vs this API on :8787) — without CORS every request fails at the
+  // browser's preflight, even though curl/Playwright-server-to-server calls
+  // work fine. Permissive by design: this is a local-first single-user tool.
+  app.use(
+    '*',
+    cors({
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'X-API-Key'],
+    }),
+  );
   app.route('/', healthRoutes());
   app.route('/projects', projectRoutes(db));
   app.route('/tags', tagRoutes(db));
