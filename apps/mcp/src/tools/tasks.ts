@@ -1,6 +1,18 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { taskService, TASK_STATUSES, TASK_PRIORITIES, type Db } from '@justdoit/core';
+import {
+  taskService,
+  tagService,
+  dueFilterSchema,
+  listOverdue,
+  listDueToday,
+  listUpcoming,
+  TASK_STATUSES,
+  TASK_PRIORITIES,
+  type Db,
+  type Task,
+  type TaskListFilters,
+} from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 // Coerce ISO date strings from agents into Date for date fields.
@@ -36,6 +48,19 @@ const updateShape = {
   estimateMinutes: z.number().int().positive().optional(),
   recurrence: z.string().optional(),
 };
+
+// NOTE (deviation from plan draft): `taskService.list`'s `TaskListFilters` (Phase 1)
+// filters by `tagId` (not a tag name) and has no `dueBefore`/`dueAfter`/`limit`/`sort`
+// fields — those were the plan's assumed shape, but core's actual due-window queries
+// live as separate `listOverdue`/`listDueToday`/`listUpcoming` functions (Phase 2's
+// schedule-service), exactly mirroring how `apps/api`'s `GET /tasks?due=...` short-
+// circuits to them (see apps/api/src/routes/tasks.ts). So `list_tasks` here accepts
+// `tag` (a name, resolved to `tagId` via `tagService.list`) and `due` (the core
+// `dueFilterSchema` enum) instead of `dueBefore`/`dueAfter`, and applies `limit` by
+// slicing the result array (a display-size convenience, not a business rule).
+function applyLimit(rows: Task[], limit: number | undefined): Task[] {
+  return limit === undefined ? rows : rows.slice(0, limit);
+}
 
 export function registerTaskTools(server: McpServer, db: Db): void {
   server.registerTool(
@@ -86,5 +111,66 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       inputSchema: { id: z.string() },
     },
     ({ id }) => guard(() => taskService.remove(db, id)),
+  );
+
+  server.registerTool(
+    'get_task',
+    {
+      title: 'Get task',
+      description: 'Fetch a single task by id.',
+      inputSchema: { id: z.string() },
+    },
+    ({ id }) => guard(() => taskService.get(db, id)),
+  );
+
+  server.registerTool(
+    'list_tasks',
+    {
+      title: 'List tasks',
+      description:
+        'List tasks with optional filters. `tag` filters by tag name; `due` filters by ' +
+        'due-date window (overdue/today/upcoming) and excludes done/cancelled tasks.',
+      inputSchema: {
+        status: z.enum(TASK_STATUSES).optional(),
+        projectId: z.string().optional(),
+        priority: z.enum(TASK_PRIORITIES).optional(),
+        tag: z.string().optional(),
+        parentTaskId: z.string().optional(),
+        due: dueFilterSchema.optional(),
+        archived: z.boolean().optional(),
+        limit: z.number().int().positive().max(500).optional(),
+      },
+    },
+    ({ tag, due, limit, ...rest }) =>
+      guard(() => {
+        if (due) {
+          const now = new Date();
+          const rows =
+            due === 'overdue'
+              ? listOverdue(db, now)
+              : due === 'today'
+                ? listDueToday(db, now)
+                : listUpcoming(db, now);
+          return applyLimit(rows, limit);
+        }
+        const filters: TaskListFilters = { ...rest };
+        if (tag) {
+          const match = tagService.list(db).find((t) => t.name === tag);
+          if (!match) return [];
+          filters.tagId = match.id;
+        }
+        return applyLimit(taskService.list(db, filters), limit);
+      }),
+  );
+
+  server.registerTool(
+    'search_tasks',
+    {
+      title: 'Search tasks',
+      description: 'Full-text search over task title/description.',
+      inputSchema: { q: z.string().min(1), limit: z.number().int().positive().optional() },
+    },
+    ({ q, limit }) =>
+      guard(() => applyLimit(taskService.list(db, { search: q }), limit)),
   );
 }

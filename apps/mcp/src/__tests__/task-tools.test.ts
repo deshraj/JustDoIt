@@ -96,3 +96,40 @@ describe('task write tools', () => {
     expect(res.isError).toBe(true);
   });
 });
+
+describe('task read tools', () => {
+  it('get_task returns a task by id', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const created = firstJson(
+      await client.callTool({ name: 'create_task', arguments: { title: 'Find me' } }),
+    ) as { id: string };
+    const got = firstJson(
+      await client.callTool({ name: 'get_task', arguments: { id: created.id } }),
+    ) as { title: string };
+    expect(got.title).toBe('Find me');
+  });
+
+  it('list_tasks filters by status', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    await client.callTool({ name: 'create_task', arguments: { title: 'A', status: 'todo' } });
+    await client.callTool({ name: 'create_task', arguments: { title: 'B', status: 'done' } });
+    const list = firstJson(
+      await client.callTool({ name: 'list_tasks', arguments: { status: 'done' } }),
+    ) as { title: string }[];
+    expect(list.map((t) => t.title)).toEqual(['B']);
+  });
+
+  it('search_tasks matches title text', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    await client.callTool({ name: 'create_task', arguments: { title: 'buy milk' } });
+    await client.callTool({ name: 'create_task', arguments: { title: 'call bob' } });
+    const list = firstJson(
+      await client.callTool({ name: 'search_tasks', arguments: { q: 'milk' } }),
+    ) as { title: string }[];
+    expect(list).toHaveLength(1);
+    expect(list[0]!.title).toBe('buy milk');
+  });
+});
