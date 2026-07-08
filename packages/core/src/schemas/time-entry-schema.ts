@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TIME_ENTRY_SOURCES } from '../db/schema';
+import { TIME_ENTRY_SOURCES, type TimeEntrySource } from '../db/schema';
 
 /** Body schema for POST /time-entries (manual log). */
 export const logManualSchema = z
@@ -36,6 +36,24 @@ export const updateEntrySchema = z
   .refine((v) => Object.keys(v).length > 0, { message: 'No fields to update' });
 export type UpdateEntryInput = z.infer<typeof updateEntrySchema>;
 
+/**
+ * Filter shape consumed by timeService.listEntries. Declared explicitly (rather than
+ * via z.infer) because zod's `.transform()` output type carries every key as required
+ * with a `| undefined` value, not as an optional key — that shape does not satisfy a
+ * `= {}` default parameter or partial-filter call sites. Annotating the `.transform`
+ * callback's return type below pins the schema's inferred output back to this interface.
+ */
+export interface TimeEntryFilter {
+  taskId?: string;
+  projectId?: string;
+  from?: Date;
+  to?: Date;
+  source?: TimeEntrySource;
+  running?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
 /** Query schema for GET /time-entries — snake_case params → camelCase filter. */
 export const timeEntryFilterSchema = z
   .object({
@@ -48,14 +66,15 @@ export const timeEntryFilterSchema = z
     limit: z.coerce.number().int().positive().max(500).optional(),
     offset: z.coerce.number().int().nonnegative().optional(),
   })
-  .transform((v) => ({
-    taskId: v.task_id,
-    projectId: v.project_id,
-    from: v.from,
-    to: v.to,
-    source: v.source,
-    running: v.running === undefined ? undefined : v.running === 'true',
-    limit: v.limit,
-    offset: v.offset,
-  }));
-export type TimeEntryFilter = z.infer<typeof timeEntryFilterSchema>;
+  .transform(
+    (v): TimeEntryFilter => ({
+      taskId: v.task_id,
+      projectId: v.project_id,
+      from: v.from,
+      to: v.to,
+      source: v.source,
+      running: v.running === undefined ? undefined : v.running === 'true',
+      limit: v.limit,
+      offset: v.offset,
+    }),
+  );

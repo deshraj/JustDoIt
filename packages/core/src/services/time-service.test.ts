@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createDb, runMigrations, type Db } from '../db';
-import { tasks, type TimeEntry } from '../db/schema';
+import { tasks, projects, type TimeEntry } from '../db/schema';
 import { timeService } from './time-service';
 import { NotFoundError, ValidationError } from '../errors';
 
@@ -46,10 +46,7 @@ describe('timeService timers', () => {
     expect(running?.id).toBe(second.id);
 
     // The first was closed at T30 (the new timer's now) → 1800s.
-    // `listEntries` lands in Task 3; cast defensively so this compiles both
-    // before and after it exists, and fall back to a direct stop check if unavailable.
-    const svc = timeService as unknown as { listEntries?: (db: Db) => TimeEntry[] };
-    const entries = svc.listEntries?.(db) ?? [];
+    const entries: TimeEntry[] = timeService.listEntries(db);
     const closedFirst = entries.find((e) => e.id === first.id) ?? null;
     if (closedFirst) {
       expect(closedFirst.endedAt?.getTime()).toBe(T30.getTime());
@@ -81,5 +78,81 @@ describe('timeService timers', () => {
     const taskId = seedTask(db);
     timeService.startTimer(db, taskId, T60);
     expect(() => timeService.stopTimer(db, {}, T0)).toThrow(ValidationError);
+  });
+});
+
+describe('timeService manual entries & management', () => {
+  let db: Db;
+  beforeEach(() => {
+    ({ db } = createDb(':memory:'));
+    runMigrations(db);
+  });
+
+  it('logManual derives durationSeconds from endedAt', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, endedAt: T60 }, T0);
+    expect(e.source).toBe('manual');
+    expect(e.durationSeconds).toBe(3600);
+    expect(e.endedAt?.getTime()).toBe(T60.getTime());
+  });
+
+  it('logManual derives endedAt from durationSeconds', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 1800 }, T0);
+    expect(e.endedAt?.getTime()).toBe(T30.getTime());
+    expect(e.durationSeconds).toBe(1800);
+  });
+
+  it('logManual throws NotFoundError for a missing task', () => {
+    expect(() =>
+      timeService.logManual(db, { taskId: 'missing', startedAt: T0, durationSeconds: 60 }, T0),
+    ).toThrow(NotFoundError);
+  });
+
+  it('listEntries filters by taskId and by project', () => {
+    const [proj] = db.insert(projects).values({ name: 'Work' }).returning().all();
+    const a = db.insert(tasks).values({ title: 'A', projectId: proj!.id }).returning().all()[0]!;
+    const b = seedTask(db, 'B'); // no project
+    timeService.logManual(db, { taskId: a.id, startedAt: T0, durationSeconds: 600 }, T0);
+    timeService.logManual(db, { taskId: b, startedAt: T0, durationSeconds: 600 }, T0);
+
+    expect(timeService.listEntries(db, { taskId: a.id })).toHaveLength(1);
+    expect(timeService.listEntries(db, { projectId: proj!.id })).toHaveLength(1);
+    expect(timeService.listEntries(db)).toHaveLength(2);
+  });
+
+  it('listEntries filters by running state', () => {
+    const taskId = seedTask(db);
+    timeService.startTimer(db, taskId, T0); // running
+    timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 60 }, T0); // closed
+    expect(timeService.listEntries(db, { running: true })).toHaveLength(1);
+    expect(timeService.listEntries(db, { running: false })).toHaveLength(1);
+  });
+
+  it('updateEntry recomputes duration when endedAt changes', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 600 }, T0);
+    const updated = timeService.updateEntry(db, e.id, { endedAt: T60 }, T60);
+    expect(updated.durationSeconds).toBe(3600);
+  });
+
+  it('updateEntry can set a note without touching duration', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 600 }, T0);
+    const updated = timeService.updateEntry(db, e.id, { note: 'pairing' }, T60);
+    expect(updated.note).toBe('pairing');
+    expect(updated.durationSeconds).toBe(600);
+  });
+
+  it('updateEntry throws NotFoundError for a missing entry', () => {
+    expect(() => timeService.updateEntry(db, 'nope', { note: 'x' }, T0)).toThrow(NotFoundError);
+  });
+
+  it('deleteEntry removes the row; second delete throws NotFoundError', () => {
+    const taskId = seedTask(db);
+    const e = timeService.logManual(db, { taskId, startedAt: T0, durationSeconds: 60 }, T0);
+    timeService.deleteEntry(db, e.id);
+    expect(timeService.listEntries(db)).toHaveLength(0);
+    expect(() => timeService.deleteEntry(db, e.id)).toThrow(NotFoundError);
   });
 });
