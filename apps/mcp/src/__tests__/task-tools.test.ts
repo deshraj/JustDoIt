@@ -132,4 +132,92 @@ describe('task read tools', () => {
     expect(list).toHaveLength(1);
     expect(list[0]!.title).toBe('buy milk');
   });
+
+  it('list_tasks composes `due` with other filters instead of dropping them', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const projA = firstJson(
+      await client.callTool({ name: 'create_project', arguments: { name: 'A' } }),
+    ) as { id: string };
+    const projB = firstJson(
+      await client.callTool({ name: 'create_project', arguments: { name: 'B' } }),
+    ) as { id: string };
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const dueAt = today.toISOString();
+    await client.callTool({
+      name: 'create_task',
+      arguments: { title: 'A-today', dueAt, projectId: projA.id, status: 'todo' },
+    });
+    await client.callTool({
+      name: 'create_task',
+      arguments: { title: 'B-today', dueAt, projectId: projB.id, status: 'todo' },
+    });
+
+    const list = firstJson(
+      await client.callTool({
+        name: 'list_tasks',
+        arguments: { due: 'today', projectId: projA.id },
+      }),
+    ) as { title: string; projectId: string }[];
+    expect(list.map((t) => t.title)).toEqual(['A-today']);
+    expect(list.every((t) => t.projectId === projA.id)).toBe(true);
+  });
+});
+
+describe('date-field null handling (no epoch corruption)', () => {
+  it('create_task with dueAt: null leaves dueAt null (not 1970)', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const task = firstJson(
+      await client.callTool({
+        name: 'create_task',
+        arguments: { title: 'No due', dueAt: null },
+      }),
+    ) as { dueAt: unknown };
+    expect(task.dueAt).toBeNull();
+  });
+
+  it('update_task with dueAt: null clears an existing due date', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const created = firstJson(
+      await client.callTool({
+        name: 'create_task',
+        arguments: { title: 'Has due', dueAt: '2026-08-01T00:00:00.000Z' },
+      }),
+    ) as { id: string; dueAt: unknown };
+    expect(created.dueAt).toBeTruthy();
+
+    const updated = firstJson(
+      await client.callTool({
+        name: 'update_task',
+        arguments: { id: created.id, dueAt: null },
+      }),
+    ) as { dueAt: unknown };
+    expect(updated.dueAt).toBeNull();
+  });
+
+  it('update_task with projectId: null clears the project', async () => {
+    const db = freshDb();
+    const { client } = await makeClient(db);
+    const proj = firstJson(
+      await client.callTool({ name: 'create_project', arguments: { name: 'P' } }),
+    ) as { id: string };
+    const created = firstJson(
+      await client.callTool({
+        name: 'create_task',
+        arguments: { title: 'In project', projectId: proj.id },
+      }),
+    ) as { id: string; projectId: string | null };
+    expect(created.projectId).toBe(proj.id);
+
+    const updated = firstJson(
+      await client.callTool({
+        name: 'update_task',
+        arguments: { id: created.id, projectId: null },
+      }),
+    ) as { projectId: string | null };
+    expect(updated.projectId).toBeNull();
+  });
 });

@@ -15,20 +15,25 @@ import {
 } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
-// Coerce ISO date strings from agents into Date for date fields.
-const isoDate = z.coerce.date();
+// Coerce ISO date strings / Dates from agents into Date for date fields.
+// IMPORTANT: `z.coerce.date()` alone silently turns an explicit `null` into
+// 1970-01-01 (`new Date(null)`), corrupting data. This restricts the input to
+// string/number/Date so a bare `null` is rejected rather than coerced. For
+// fields core allows clearing, wrap with `.nullish()` (which short-circuits
+// `null` through untouched, before coercion) so `null` means "clear the field".
+const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
 const createShape = {
   title: z.string().min(1),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   status: z.enum(TASK_STATUSES).optional(),
-  priority: z.enum(TASK_PRIORITIES).optional(),
-  projectId: z.string().optional(),
-  parentTaskId: z.string().optional(),
-  dueAt: isoDate.optional(),
-  startAt: isoDate.optional(),
-  estimateMinutes: z.number().int().positive().optional(),
-  recurrence: z.string().optional(),
+  priority: z.enum(TASK_PRIORITIES).nullish(),
+  projectId: z.string().nullish(),
+  parentTaskId: z.string().nullish(),
+  dueAt: isoDate.nullish(),
+  startAt: isoDate.nullish(),
+  estimateMinutes: z.number().int().positive().nullish(),
+  recurrence: z.string().nullish(),
 };
 
 // NOTE: written as an explicit literal (all `createShape` fields repeated as
@@ -38,15 +43,15 @@ const createShape = {
 const updateShape = {
   id: z.string(),
   title: z.string().min(1).optional(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
   status: z.enum(TASK_STATUSES).optional(),
-  priority: z.enum(TASK_PRIORITIES).optional(),
-  projectId: z.string().optional(),
-  parentTaskId: z.string().optional(),
-  dueAt: isoDate.optional(),
-  startAt: isoDate.optional(),
-  estimateMinutes: z.number().int().positive().optional(),
-  recurrence: z.string().optional(),
+  priority: z.enum(TASK_PRIORITIES).nullish(),
+  projectId: z.string().nullish(),
+  parentTaskId: z.string().nullish(),
+  dueAt: isoDate.nullish(),
+  startAt: isoDate.nullish(),
+  estimateMinutes: z.number().int().positive().nullish(),
+  recurrence: z.string().nullish(),
 };
 
 // NOTE (deviation from plan draft): `taskService.list`'s `TaskListFilters` (Phase 1)
@@ -143,22 +148,42 @@ export function registerTaskTools(server: McpServer, db: Db): void {
     },
     ({ tag, due, limit, ...rest }) =>
       guard(() => {
+        // Resolve tag name -> id once; an unknown tag matches nothing.
+        let tagId: string | undefined;
+        if (tag) {
+          const match = tagService.list(db).find((t) => t.name === tag);
+          if (!match) return [];
+          tagId = match.id;
+        }
         if (due) {
+          // Core's due-window queries (overdue/today/upcoming) don't accept the
+          // other filters, so apply status/projectId/priority/parentTaskId/archived
+          // (and tag) to their results here so combined filters compose rather than
+          // silently dropping everything but `due`.
           const now = new Date();
-          const rows =
+          let rows =
             due === 'overdue'
               ? listOverdue(db, now)
               : due === 'today'
                 ? listDueToday(db, now)
                 : listUpcoming(db, now);
+          rows = rows.filter((t) => {
+            if (rest.status !== undefined && t.status !== rest.status) return false;
+            if (rest.priority !== undefined && t.priority !== rest.priority) return false;
+            if (rest.projectId !== undefined && t.projectId !== rest.projectId) return false;
+            if (rest.parentTaskId !== undefined && t.parentTaskId !== rest.parentTaskId)
+              return false;
+            if (rest.archived !== undefined && t.archived !== rest.archived) return false;
+            return true;
+          });
+          if (tagId !== undefined) {
+            const taggedIds = new Set(taskService.list(db, { tagId }).map((t) => t.id));
+            rows = rows.filter((t) => taggedIds.has(t.id));
+          }
           return applyLimit(rows, limit);
         }
         const filters: TaskListFilters = { ...rest };
-        if (tag) {
-          const match = tagService.list(db).find((t) => t.name === tag);
-          if (!match) return [];
-          filters.tagId = match.id;
-        }
+        if (tagId !== undefined) filters.tagId = tagId;
         return applyLimit(taskService.list(db, filters), limit);
       }),
   );
@@ -168,7 +193,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
     {
       title: 'Search tasks',
       description: 'Full-text search over task title/description.',
-      inputSchema: { q: z.string().min(1), limit: z.number().int().positive().optional() },
+      inputSchema: { q: z.string().min(1), limit: z.number().int().positive().max(500).optional() },
     },
     ({ q, limit }) => guard(() => applyLimit(taskService.list(db, { search: q }), limit)),
   );
