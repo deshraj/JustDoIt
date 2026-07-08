@@ -3,7 +3,7 @@ import { createDb, runMigrations, type Db } from '../db';
 import { taskService } from './task-service';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
-import { NotFoundError, ConflictError } from '../errors';
+import { NotFoundError, ConflictError, ValidationError } from '../errors';
 
 function freshDb(): Db {
   const { db } = createDb(':memory:');
@@ -95,5 +95,40 @@ describe('taskService', () => {
     taskService.remove(db, parent.id);
     expect(() => taskService.get(db, parent.id)).toThrow(NotFoundError);
     expect(taskService.list(db)).toHaveLength(0);
+  });
+
+  it('rejects creating a task whose startAt is after dueAt', () => {
+    expect(() =>
+      taskService.create(db, {
+        title: 'bad window',
+        startAt: new Date('2026-02-02T00:00:00Z'),
+        dueAt: new Date('2026-02-01T00:00:00Z'),
+      }),
+    ).toThrow(ValidationError);
+  });
+
+  it('rejects creating a task with an invalid recurrence', () => {
+    expect(() => taskService.create(db, { title: 'bad rule', recurrence: 'FREQ=NOPE' })).toThrow(
+      ValidationError,
+    );
+  });
+
+  it('accepts a valid recurrence', () => {
+    const task = taskService.create(db, { title: 'daily standup', recurrence: 'FREQ=DAILY' });
+    expect(task.recurrence).toBe('FREQ=DAILY');
+  });
+
+  it('rejects updating a task into an invalid window', () => {
+    const t = taskService.create(db, { title: 'x', dueAt: new Date('2026-02-01T00:00:00Z') });
+    expect(() =>
+      taskService.update(db, t.id, { startAt: new Date('2026-02-02T00:00:00Z') }),
+    ).toThrow(ValidationError);
+  });
+
+  it('rejects updating a task with an invalid recurrence', () => {
+    const t = taskService.create(db, { title: 'x' });
+    expect(() => taskService.update(db, t.id, { recurrence: 'FREQ=NOPE' })).toThrow(
+      ValidationError,
+    );
   });
 });

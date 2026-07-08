@@ -15,6 +15,8 @@ import {
   type CreateTaskInput,
   type UpdateTaskInput,
 } from '../schemas';
+import { assertValidWindow } from './schedule-service';
+import { assertValidRecurrence } from '../recurrence';
 
 export interface TaskListFilters {
   status?: TaskStatus;
@@ -55,6 +57,8 @@ export const taskService = {
         throw new ConflictError('Subtasks may only be one level deep');
       }
     }
+    assertValidWindow({ startAt: parsed.startAt ?? null, dueAt: parsed.dueAt ?? null });
+    if (parsed.recurrence != null) assertValidRecurrence(parsed.recurrence);
     const position = nextPosition(db, parsed.projectId ?? null, parsed.parentTaskId ?? null);
     const [row] = db
       .insert(tasks)
@@ -112,8 +116,13 @@ export const taskService = {
 
   update(db: Db, id: string, patch: UpdateTaskInput): Task {
     const parsed = updateTaskSchema.parse(patch);
-    taskService.get(db, id);
+    const existing = taskService.get(db, id);
     if (parsed.projectId) requireProject(db, parsed.projectId);
+    assertValidWindow({
+      startAt: 'startAt' in parsed ? (parsed.startAt ?? null) : existing.startAt,
+      dueAt: 'dueAt' in parsed ? (parsed.dueAt ?? null) : existing.dueAt,
+    });
+    if (parsed.recurrence != null) assertValidRecurrence(parsed.recurrence);
     const [row] = db
       .update(tasks)
       .set({ ...parsed, updatedAt: new Date() })
