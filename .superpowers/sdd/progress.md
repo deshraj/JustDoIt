@@ -16,4 +16,5 @@ Parallelism: spine 0→1→2→3, then 4 ∥ 5, then 6.
 - [ ] Phase 6 — Polish
 
 ## Log
+
 Phase 0: complete (commits 796ea1c..ec9e236, gates green, 9 tables). Minor: benign eslint.config.js module-type warning.
