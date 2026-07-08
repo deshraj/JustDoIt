@@ -13,7 +13,7 @@ Parallelism: spine 0→1→2→3, then 4 ∥ 5, then 6.
 - [x] Phase 3 — Scheduling
 - [x] Phase 4 — MCP server
 - [x] Phase 5 — Web UI
-- [ ] Phase 6 — Polish
+- [x] Phase 6 — Polish
 
 ## Log
 
@@ -23,3 +23,4 @@ Phase 2: complete (commits d7b20c0..4bfcf70, 98 tests, gates green). Note: route
 Phase 3: complete (commits 45d6a69..646d978, 128 tests, gates green, no concerns).
 Phase 4: complete (merged worktree, commits 4bd74ff..42830e0, 28 mcp tests, 156 total, gates green). SDK 1.29.0; MCP uses core real filter surface; also fixed pre-existing rrule CJS/ESM interop in core/recurrence.ts (unblocks tsx boot). Controller added .next/.claude to lint+prettier ignores and .next to gitignore.
 Phase 5: complete (merged worktree, commits 6467a1c..a9589c2, 176 tests + Playwright 3/3, gates green). Added 4 backend gap-fixes (CORS, task-tags routes, due-range filter, rrule). Merge reconciled recurrence.ts/gitignore/eslint/lockfile. frontend-design skill was unavailable; tokens derived from plan constraints.
+Phase 6: complete (commits 6245929..08e8fd0, 251 tests total, gates green, web build OK, SSE smoke-tested). ALL PHASES DONE.
