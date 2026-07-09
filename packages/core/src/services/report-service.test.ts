@@ -22,7 +22,11 @@ describe('reportService.timeReport', () => {
   });
 
   it('groups by UTC day and sums only closed entries', () => {
-    const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A', estimateMinutes: 30 })
+      .returning()
+      .all();
     timeService.logManual(
       ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
@@ -45,7 +49,11 @@ describe('reportService.timeReport', () => {
   });
 
   it('respects the from/to window on startedAt', () => {
-    const [t] = db.insert(tasks).values({ title: 'A' }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A' })
+      .returning()
+      .all();
     timeService.logManual(
       ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
@@ -64,13 +72,21 @@ describe('reportService.timeReport', () => {
   });
 
   it('groups by project, mapping null project to Inbox', () => {
-    const [proj] = db.insert(projects).values({ name: 'Work' }).returning().all();
+    const [proj] = db
+      .insert(projects)
+      .values({ userId: LOCAL_USER_ID, name: 'Work' })
+      .returning()
+      .all();
     const withProj = db
       .insert(tasks)
-      .values({ title: 'A', projectId: proj!.id })
+      .values({ userId: LOCAL_USER_ID, title: 'A', projectId: proj!.id })
       .returning()
       .all()[0]!;
-    const noProj = db.insert(tasks).values({ title: 'B' }).returning().all()[0]!;
+    const noProj = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'B' })
+      .returning()
+      .all()[0]!;
     timeService.logManual(
       ctx,
       { taskId: withProj.id, startedAt: D1_0900, durationSeconds: 3600 },
@@ -93,9 +109,21 @@ describe('reportService.timeReport', () => {
   });
 
   it('groups by tag, double-counting multi-tag tasks', () => {
-    const [t] = db.insert(tasks).values({ title: 'A' }).returning().all();
-    const [red] = db.insert(tags).values({ name: 'red' }).returning().all();
-    const [blue] = db.insert(tags).values({ name: 'blue' }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A' })
+      .returning()
+      .all();
+    const [red] = db
+      .insert(tags)
+      .values({ userId: LOCAL_USER_ID, name: 'red' })
+      .returning()
+      .all();
+    const [blue] = db
+      .insert(tags)
+      .values({ userId: LOCAL_USER_ID, name: 'blue' })
+      .returning()
+      .all();
     db.insert(taskTags).values({ taskId: t!.id, tagId: red!.id }).run();
     db.insert(taskTags).values({ taskId: t!.id, tagId: blue!.id }).run();
     timeService.logManual(
@@ -111,7 +139,11 @@ describe('reportService.timeReport', () => {
   });
 
   it('computes estimate vs actual with variance', () => {
-    const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A', estimateMinutes: 30 })
+      .returning()
+      .all();
     timeService.logManual(ctx, { taskId: t!.id, startedAt: D1_0900, endedAt: D1_1000 }, D1_0900);
     const report = reportService.timeReport(ctx, { groupBy: 'day' });
     expect(report.estimateVsActual).toEqual([

@@ -5,7 +5,11 @@ import { runReminderTick, type Notifier } from './scheduler';
 function setup() {
   const { db } = createDb(':memory:');
   runMigrations(db);
-  const [task] = db.insert(tasks).values({ title: 'stand up' }).returning().all();
+  const [task] = db
+    .insert(tasks)
+    .values({ userId: LOCAL_USER_ID, title: 'stand up' })
+    .returning()
+    .all();
   return { db, ctx: { db, userId: LOCAL_USER_ID }, taskId: task!.id };
 }
 

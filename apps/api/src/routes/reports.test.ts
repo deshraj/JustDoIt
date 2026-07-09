@@ -38,7 +38,11 @@ beforeEach(() => {
 
 describe('GET /reports/time', () => {
   it('returns totals grouped by day plus estimate-vs-actual', async () => {
-    const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A', estimateMinutes: 30 })
+      .returning()
+      .all();
     timeService.logManual(
       { db, userId: LOCAL_USER_ID },
       { taskId: t!.id, startedAt: new Date('2026-07-08T09:00:00.000Z'), durationSeconds: 3600 },
@@ -64,7 +68,11 @@ describe('GET /reports/time', () => {
   });
 
   it('honors the from window', async () => {
-    const [t] = db.insert(tasks).values({ title: 'A' }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A' })
+      .returning()
+      .all();
     timeService.logManual(
       { db, userId: LOCAL_USER_ID },
       { taskId: t!.id, startedAt: new Date('2026-07-08T09:00:00.000Z'), durationSeconds: 600 },

@@ -8,7 +8,6 @@ import {
   unique,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
-import { LOCAL_USER_ID } from '../constants';
 
 export const TASK_STATUSES = [
   'backlog',
@@ -65,18 +64,18 @@ export const apiKeys = sqliteTable(
 );
 
 /**
- * Owner column for user-owned tables. The trailing `.$defaultFn` is TRANSITIONAL
- * scaffolding: it keeps every pre-tenancy `(db, …)` insert compiling while
- * services are converted to `(ctx, …)` one cluster at a time. Task 16 removes it
- * so the type system forces explicit `userId: ctx.userId` stamping. The declared
- * FK documents intent; the 0001 migration adds the physical column without the
- * DB-level FK (SQLite ALTER limitation — see plan Global Constraints).
+ * Owner column for user-owned tables. `user_id` is a required insert field
+ * (no `$defaultFn`) — the compiler forces every insert to stamp explicit
+ * `userId: ctx.userId` (Task 16 hardening). The declared FK documents intent;
+ * the 0001 migration adds the physical column without the DB-level FK
+ * (SQLite ALTER limitation — see plan Global Constraints). The migration
+ * keeps its own physical `DEFAULT 'local-user'` for backfilling legacy rows,
+ * which is unaffected by removing this transitional application-level default.
  */
 const ownerId = () =>
   text('user_id')
     .notNull()
-    .references(() => users.id, { onDelete: 'cascade' })
-    .$defaultFn(() => LOCAL_USER_ID);
+    .references(() => users.id, { onDelete: 'cascade' });
 
 export const projects = sqliteTable(
   'projects',
