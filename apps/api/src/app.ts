@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { startActivityLog, type Db } from '@justdoit/core';
+import { startActivityLog, userService, type Db } from '@justdoit/core';
 import { errorHandler } from './middleware/error';
 import { apiKeyAuth } from './middleware/auth';
 import { setUserContext, type AppEnv } from './context';
@@ -46,6 +46,10 @@ function resolveCorsOrigin(opts: CreateAppOptions): string | string[] {
 }
 
 export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
+  // Idempotently ensure the fixed local user exists before any request
+  // arrives — a fresh migrated DB already has it (0001 seed), but this
+  // guards any edge case (e.g. a DB migrated by an older snapshot).
+  userService.ensureLocalUser(db);
   // Attach the activity-log subscriber once per app instance so every
   // mutation made through this app's db is persisted to the audit trail.
   startActivityLog(db);
