@@ -13,11 +13,11 @@ import {
   TASK_STATUSES,
   TASK_PRIORITIES,
   ValidationError,
-  type Db,
   type TaskListFilters,
   type TaskStatus,
   type TaskPriority,
 } from '@justdoit/core';
+import type { AppEnv } from '../context';
 
 const bulkPatchSchema = z.object({
   ids: z.array(z.string()).min(1),
@@ -74,10 +74,11 @@ function parseFilters(query: Record<string, string>, valid: ListQuery): TaskList
   return filters;
 }
 
-export function taskRoutes(db: Db): Hono {
-  const r = new Hono();
+export function taskRoutes(): Hono<AppEnv> {
+  const r = new Hono<AppEnv>();
 
   r.get('/', (c) => {
+    const ctx = c.var.ctx;
     const query = c.req.query();
     const valid = parseListQuery(query);
     const filters = parseFilters(query, valid);
@@ -86,57 +87,57 @@ export function taskRoutes(db: Db): Hono {
       const days = valid.days ?? 7;
       const window =
         filters.due === 'overdue'
-          ? listOverdue(db, now)
+          ? listOverdue(ctx, now)
           : filters.due === 'today'
-            ? listDueToday(db, now)
-            : listUpcoming(db, now, days);
+            ? listDueToday(ctx, now)
+            : listUpcoming(ctx, now, days);
       // The relative `due` window is a separate query from `taskService.list`,
       // so compose them: intersect the window with the tasks matching the
       // remaining filters (status/priority/project/parent/archived/search/
       // due_from/due_to/tag) instead of dropping those filters silently.
-      const allowed = new Set(taskService.list(db, filters).map((t) => t.id));
+      const allowed = new Set(taskService.list(ctx, filters).map((t) => t.id));
       return c.json(window.filter((t) => allowed.has(t.id)));
     }
-    return c.json(taskService.list(db, filters));
+    return c.json(taskService.list(ctx, filters));
   });
 
   r.post('/', zValidator('json', createTaskSchema), (c) =>
-    c.json(taskService.create(db, c.req.valid('json')), 201),
+    c.json(taskService.create(c.var.ctx, c.req.valid('json')), 201),
   );
 
   // Registered before `/:id` so `bulk` / `bulk-delete` aren't swallowed by
   // the `:id` param matcher.
   r.patch('/bulk', zValidator('json', bulkPatchSchema), (c) => {
     const { ids, patch } = c.req.valid('json');
-    return c.json({ tasks: taskService.bulkUpdate(db, ids, patch) });
+    return c.json({ tasks: taskService.bulkUpdate(c.var.ctx, ids, patch) });
   });
 
   r.post('/bulk-delete', zValidator('json', bulkDeleteSchema), (c) => {
     const { ids } = c.req.valid('json');
-    return c.json(taskService.bulkDelete(db, ids));
+    return c.json(taskService.bulkDelete(c.var.ctx, ids));
   });
 
-  r.get('/:id', (c) => c.json(taskService.get(db, c.req.param('id'))));
+  r.get('/:id', (c) => c.json(taskService.get(c.var.ctx, c.req.param('id'))));
 
   r.patch('/:id', zValidator('json', updateTaskSchema), (c) =>
-    c.json(taskService.update(db, c.req.param('id'), c.req.valid('json'))),
+    c.json(taskService.update(c.var.ctx, c.req.param('id'), c.req.valid('json'))),
   );
 
   r.delete('/:id', (c) => {
-    taskService.remove(db, c.req.param('id'));
+    taskService.remove(c.var.ctx, c.req.param('id'));
     return c.body(null, 204);
   });
 
   r.patch('/:id/status', zValidator('json', setStatusSchema), (c) =>
-    c.json(taskService.setStatus(db, c.req.param('id'), c.req.valid('json').status)),
+    c.json(taskService.setStatus(c.var.ctx, c.req.param('id'), c.req.valid('json').status)),
   );
 
-  r.post('/:id/complete', (c) => c.json(taskService.complete(db, c.req.param('id'))));
+  r.post('/:id/complete', (c) => c.json(taskService.complete(c.var.ctx, c.req.param('id'))));
 
-  r.get('/:id/subtasks', (c) => c.json(taskService.listSubtasks(db, c.req.param('id'))));
+  r.get('/:id/subtasks', (c) => c.json(taskService.listSubtasks(c.var.ctx, c.req.param('id'))));
 
   r.post('/:id/subtasks', zValidator('json', createTaskSchema), (c) =>
-    c.json(taskService.addSubtask(db, c.req.param('id'), c.req.valid('json')), 201),
+    c.json(taskService.addSubtask(c.var.ctx, c.req.param('id'), c.req.valid('json')), 201),
   );
 
   return r;

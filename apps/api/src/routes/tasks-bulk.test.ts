@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations, taskService } from '@justdoit/core';
+import { createDb, runMigrations, taskService, LOCAL_USER_ID } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TaskJson {
@@ -17,8 +17,8 @@ function harness() {
 describe('bulk task routes', () => {
   it('PATCH /tasks/bulk updates many tasks', async () => {
     const { db, app } = harness();
-    const a = taskService.create(db, { title: 'A' });
-    const b = taskService.create(db, { title: 'B' });
+    const a = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'A' });
+    const b = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'B' });
     const res = await app.request('/tasks/bulk', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
@@ -32,7 +32,7 @@ describe('bulk task routes', () => {
 
   it('POST /tasks/bulk-delete returns the count', async () => {
     const { db, app } = harness();
-    const a = taskService.create(db, { title: 'A' });
+    const a = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'A' });
     const res = await app.request('/tasks/bulk-delete', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

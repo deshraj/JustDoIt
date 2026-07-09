@@ -1,8 +1,9 @@
 import { and, asc, eq, gt, gte, isNull, lt, lte, notInArray } from 'drizzle-orm';
-import type { Db } from '../db';
 import { tasks, taskTags, type Task } from '../db/schema';
 import { ValidationError } from '../errors';
 import { nextOccurrence } from '../recurrence';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 
 const TERMINAL_STATUSES = ['done', 'cancelled'] as const;
 
@@ -28,21 +29,22 @@ function endOfLocalDay(d: Date): Date {
 
 const activeAndDue = () => notInArray(tasks.status, [...TERMINAL_STATUSES]);
 
-export function listOverdue(db: Db, now: Date): Task[] {
-  return db
+export function listOverdue(ctx: Ctx, now: Date): Task[] {
+  return ctx.db
     .select()
     .from(tasks)
-    .where(and(lt(tasks.dueAt, now), activeAndDue()))
+    .where(and(userScope(tasks, ctx.userId), lt(tasks.dueAt, now), activeAndDue()))
     .orderBy(asc(tasks.dueAt))
     .all();
 }
 
-export function listDueToday(db: Db, now: Date): Task[] {
-  return db
+export function listDueToday(ctx: Ctx, now: Date): Task[] {
+  return ctx.db
     .select()
     .from(tasks)
     .where(
       and(
+        userScope(tasks, ctx.userId),
         gte(tasks.dueAt, startOfLocalDay(now)),
         lte(tasks.dueAt, endOfLocalDay(now)),
         activeAndDue(),
@@ -52,23 +54,31 @@ export function listDueToday(db: Db, now: Date): Task[] {
     .all();
 }
 
-export function listUpcoming(db: Db, now: Date, days = 7): Task[] {
+export function listUpcoming(ctx: Ctx, now: Date, days = 7): Task[] {
   const end = endOfLocalDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
-  return db
+  return ctx.db
     .select()
     .from(tasks)
-    .where(and(gt(tasks.dueAt, now), lte(tasks.dueAt, end), activeAndDue()))
+    .where(
+      and(
+        userScope(tasks, ctx.userId),
+        gt(tasks.dueAt, now),
+        lte(tasks.dueAt, end),
+        activeAndDue(),
+      ),
+    )
     .orderBy(asc(tasks.dueAt))
     .all();
 }
 
 /** Next free position within a project/parent scope (mirrors task-service.create). */
-function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {
-  const rows = db
+function nextPosition(ctx: Ctx, projectId: string | null, parentTaskId: string | null): number {
+  const rows = ctx.db
     .select({ position: tasks.position })
     .from(tasks)
     .where(
       and(
+        userScope(tasks, ctx.userId),
         projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId),
         parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId),
       ),
@@ -77,15 +87,16 @@ function nextPosition(db: Db, projectId: string | null, parentTaskId: string | n
   return rows.reduce((max, r) => Math.max(max, r.position), 0) + 1;
 }
 
-export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null {
+export function spawnNextRecurrence(ctx: Ctx, task: Task, now: Date): Task | null {
   if (!task.recurrence) return null;
   const anchor = task.dueAt ?? task.startAt ?? now;
   const next = nextOccurrence(task.recurrence, anchor);
   if (!next) return null;
   const delta = next.getTime() - anchor.getTime();
-  const [created] = db
+  const [created] = ctx.db
     .insert(tasks)
     .values({
+      userId: ctx.userId,
       title: task.title,
       description: task.description,
       status: 'todo',
@@ -93,7 +104,7 @@ export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null 
       projectId: task.projectId,
       parentTaskId: task.parentTaskId,
       // Fresh position so the new occurrence doesn't collide with the completed one.
-      position: nextPosition(db, task.projectId, task.parentTaskId),
+      position: nextPosition(ctx, task.projectId, task.parentTaskId),
       estimateMinutes: task.estimateMinutes,
       recurrence: task.recurrence,
       dueAt: task.dueAt ? new Date(task.dueAt.getTime() + delta) : null,
@@ -104,13 +115,14 @@ export function spawnNextRecurrence(db: Db, task: Task, now: Date): Task | null 
     .all();
   if (!created) return null;
   // Carry the source task's tag associations onto the new occurrence.
-  const sourceTags = db
+  const sourceTags = ctx.db
     .select({ tagId: taskTags.tagId })
     .from(taskTags)
     .where(eq(taskTags.taskId, task.id))
     .all();
   if (sourceTags.length) {
-    db.insert(taskTags)
+    ctx.db
+      .insert(taskTags)
       .values(sourceTags.map((t) => ({ taskId: created.id, tagId: t.tagId })))
       .run();
   }

@@ -9,6 +9,8 @@ import {
   listUpcoming,
   TASK_STATUSES,
   TASK_PRIORITIES,
+  LOCAL_USER_ID,
+  type Ctx,
   type Db,
   type Task,
   type TaskListFilters,
@@ -68,6 +70,8 @@ function applyLimit(rows: Task[], limit: number | undefined): Task[] {
 }
 
 export function registerTaskTools(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+
   server.registerTool(
     'create_task',
     {
@@ -75,7 +79,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Create a new task. Dates accept ISO 8601 strings.',
       inputSchema: createShape,
     },
-    (args) => guard(() => taskService.create(db, args)),
+    (args) => guard(() => taskService.create(ctx, args)),
   );
 
   server.registerTool(
@@ -85,7 +89,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Patch an existing task by id.',
       inputSchema: updateShape,
     },
-    ({ id, ...patch }) => guard(() => taskService.update(db, id, patch)),
+    ({ id, ...patch }) => guard(() => taskService.update(ctx, id, patch)),
   );
 
   server.registerTool(
@@ -95,7 +99,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Move a task to a new status.',
       inputSchema: { id: z.string(), status: z.enum(TASK_STATUSES) },
     },
-    ({ id, status }) => guard(() => taskService.setStatus(db, id, status)),
+    ({ id, status }) => guard(() => taskService.setStatus(ctx, id, status)),
   );
 
   server.registerTool(
@@ -105,7 +109,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Mark a task done (spawns next occurrence if recurring).',
       inputSchema: { id: z.string() },
     },
-    ({ id }) => guard(() => taskService.complete(db, id, new Date())),
+    ({ id }) => guard(() => taskService.complete(ctx, id, new Date())),
   );
 
   server.registerTool(
@@ -115,7 +119,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Permanently delete a task and its subtasks.',
       inputSchema: { id: z.string() },
     },
-    ({ id }) => guard(() => taskService.remove(db, id)),
+    ({ id }) => guard(() => taskService.remove(ctx, id)),
   );
 
   server.registerTool(
@@ -125,7 +129,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Fetch a single task by id.',
       inputSchema: { id: z.string() },
     },
-    ({ id }) => guard(() => taskService.get(db, id)),
+    ({ id }) => guard(() => taskService.get(ctx, id)),
   );
 
   server.registerTool(
@@ -151,7 +155,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
         // Resolve tag name -> id once; an unknown tag matches nothing.
         let tagId: string | undefined;
         if (tag) {
-          const match = tagService.list(db).find((t) => t.name === tag);
+          const match = tagService.list(ctx).find((t) => t.name === tag);
           if (!match) return [];
           tagId = match.id;
         }
@@ -163,10 +167,10 @@ export function registerTaskTools(server: McpServer, db: Db): void {
           const now = new Date();
           let rows =
             due === 'overdue'
-              ? listOverdue(db, now)
+              ? listOverdue(ctx, now)
               : due === 'today'
-                ? listDueToday(db, now)
-                : listUpcoming(db, now);
+                ? listDueToday(ctx, now)
+                : listUpcoming(ctx, now);
           rows = rows.filter((t) => {
             if (rest.status !== undefined && t.status !== rest.status) return false;
             if (rest.priority !== undefined && t.priority !== rest.priority) return false;
@@ -177,14 +181,14 @@ export function registerTaskTools(server: McpServer, db: Db): void {
             return true;
           });
           if (tagId !== undefined) {
-            const taggedIds = new Set(taskService.list(db, { tagId }).map((t) => t.id));
+            const taggedIds = new Set(taskService.list(ctx, { tagId }).map((t) => t.id));
             rows = rows.filter((t) => taggedIds.has(t.id));
           }
           return applyLimit(rows, limit);
         }
         const filters: TaskListFilters = { ...rest };
         if (tagId !== undefined) filters.tagId = tagId;
-        return applyLimit(taskService.list(db, filters), limit);
+        return applyLimit(taskService.list(ctx, filters), limit);
       }),
   );
 
@@ -195,6 +199,6 @@ export function registerTaskTools(server: McpServer, db: Db): void {
       description: 'Full-text search over task title/description.',
       inputSchema: { q: z.string().min(1), limit: z.number().int().positive().max(500).optional() },
     },
-    ({ q, limit }) => guard(() => applyLimit(taskService.list(db, { search: q }), limit)),
+    ({ q, limit }) => guard(() => applyLimit(taskService.list(ctx, { search: q }), limit)),
   );
 }

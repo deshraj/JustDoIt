@@ -1,7 +1,8 @@
-import { eq, asc } from 'drizzle-orm';
-import type { Db } from '../db';
+import { and, asc, eq } from 'drizzle-orm';
 import { projects, type Project } from '../db/schema';
 import { NotFoundError } from '../errors';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -10,55 +11,67 @@ import {
 } from '../schemas';
 import { emit } from '../events/emit';
 
-function nextPosition(db: Db): number {
-  const rows = db.select({ position: projects.position }).from(projects).all();
+function nextPosition(ctx: Ctx): number {
+  const rows = ctx.db
+    .select({ position: projects.position })
+    .from(projects)
+    .where(userScope(projects, ctx.userId))
+    .all();
   return rows.reduce((max, r) => Math.max(max, r.position), 0) + 1;
 }
 
 export const projectService = {
-  create(db: Db, input: CreateProjectInput): Project {
+  create(ctx: Ctx, input: CreateProjectInput): Project {
     const parsed = createProjectSchema.parse(input);
-    const [row] = db
+    const [row] = ctx.db
       .insert(projects)
-      .values({ ...parsed, position: nextPosition(db) })
+      .values({ ...parsed, userId: ctx.userId, position: nextPosition(ctx) })
       .returning()
       .all();
-    emit('project', row!.id, 'created', { name: row!.name });
+    emit(ctx.userId, 'project', row!.id, 'created', { name: row!.name });
     return row!;
   },
 
-  get(db: Db, id: string): Project {
-    const row = db.select().from(projects).where(eq(projects.id, id)).get();
+  get(ctx: Ctx, id: string): Project {
+    const row = ctx.db
+      .select()
+      .from(projects)
+      .where(and(eq(projects.id, id), userScope(projects, ctx.userId)))
+      .get();
     if (!row) throw new NotFoundError('Project', id);
     return row;
   },
 
-  list(db: Db, opts: { archived?: boolean } = {}): Project[] {
-    const where = opts.archived === undefined ? undefined : eq(projects.archived, opts.archived);
-    return db
+  list(ctx: Ctx, opts: { archived?: boolean } = {}): Project[] {
+    const conds = [userScope(projects, ctx.userId)];
+    if (opts.archived !== undefined) conds.push(eq(projects.archived, opts.archived));
+    return ctx.db
       .select()
       .from(projects)
-      .where(where)
+      .where(and(...conds))
       .orderBy(asc(projects.position), asc(projects.createdAt))
       .all();
   },
 
-  update(db: Db, id: string, patch: UpdateProjectInput): Project {
+  update(ctx: Ctx, id: string, patch: UpdateProjectInput): Project {
     const parsed = updateProjectSchema.parse(patch);
-    projectService.get(db, id);
-    const [row] = db
+    projectService.get(ctx, id); // 404s a foreign id
+    const [row] = ctx.db
       .update(projects)
       .set({ ...parsed, updatedAt: new Date() })
-      .where(eq(projects.id, id))
+      .where(and(eq(projects.id, id), userScope(projects, ctx.userId)))
       .returning()
       .all();
-    emit('project', row!.id, 'updated', { patch });
+    emit(ctx.userId, 'project', row!.id, 'updated', { patch });
     return row!;
   },
 
-  remove(db: Db, id: string): void {
-    projectService.get(db, id);
-    db.delete(projects).where(eq(projects.id, id)).run();
-    emit('project', id, 'deleted', {});
+  remove(ctx: Ctx, id: string): void {
+    projectService.get(ctx, id); // 404s a foreign id
+    ctx.db
+      .delete(projects)
+      .where(and(eq(projects.id, id), userScope(projects, ctx.userId)))
+      .run();
+    emit(ctx.userId, 'project', id, 'deleted', {});
   },
 };

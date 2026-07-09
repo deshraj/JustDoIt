@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
-import type { Db } from '../db';
+import { and, eq } from 'drizzle-orm';
 import { projects, tags, type Task, type TaskPriority } from '../db/schema';
 import { ValidationError } from '../errors';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
 import { taskService } from './task-service';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 
 export interface QuickAddParsed {
   title: string;
@@ -116,23 +117,23 @@ export const quickAddService = {
     return parseQuickAdd(text, now);
   },
 
-  create(db: Db, text: string, now: Date = new Date()): Task {
+  create(ctx: Ctx, text: string, now: Date = new Date()): Task {
     const parsed = parseQuickAdd(text, now);
     if (!parsed.title) throw new ValidationError('Quick-add text produced an empty title');
 
     let projectId: string | undefined;
     if (parsed.projectName) {
-      const existing = db
+      const existing = ctx.db
         .select()
         .from(projects)
-        .where(eq(projects.name, parsed.projectName))
+        .where(and(userScope(projects, ctx.userId), eq(projects.name, parsed.projectName)))
         .get();
       projectId = existing
         ? existing.id
-        : projectService.create(db, { name: parsed.projectName }).id;
+        : projectService.create(ctx, { name: parsed.projectName }).id;
     }
 
-    const task = taskService.create(db, {
+    const task = taskService.create(ctx, {
       title: parsed.title,
       priority: parsed.priority ?? null,
       projectId: projectId ?? null,
@@ -140,11 +141,15 @@ export const quickAddService = {
     });
 
     for (const name of parsed.tags) {
-      const existing = db.select().from(tags).where(eq(tags.name, name)).get();
-      const tag = existing ?? tagService.create(db, { name });
-      tagService.attach(db, task.id, tag.id);
+      const existing = ctx.db
+        .select()
+        .from(tags)
+        .where(and(userScope(tags, ctx.userId), eq(tags.name, name)))
+        .get();
+      const tag = existing ?? tagService.create(ctx, { name });
+      tagService.attach(ctx, task.id, tag.id);
     }
 
-    return taskService.get(db, task.id);
+    return taskService.get(ctx, task.id);
   },
 };

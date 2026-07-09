@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations, tasks, projects } from '@justdoit/core';
+import { createDb, runMigrations, tasks, projects, LOCAL_USER_ID } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TaskJson {
@@ -93,8 +93,8 @@ describe('tasks routes', () => {
     runMigrations(db);
     const a = createApp(db);
     const past = new Date(Date.now() - 86_400_000);
-    db.insert(tasks).values({ title: 'late', dueAt: past }).run();
-    db.insert(tasks).values({ title: 'no-due' }).run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'late', dueAt: past }).run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'no-due' }).run();
     const res = await a.request('/tasks?due=overdue');
     const body = (await res.json()) as TaskJson[];
     expect(body.map((t) => t.title)).toEqual(['late']);
@@ -106,8 +106,8 @@ describe('tasks routes', () => {
     const a = createApp(db);
     const inThree = new Date(Date.now() + 3 * 86_400_000);
     const inTen = new Date(Date.now() + 10 * 86_400_000);
-    db.insert(tasks).values({ title: 'soon', dueAt: inThree }).run();
-    db.insert(tasks).values({ title: 'later', dueAt: inTen }).run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'soon', dueAt: inThree }).run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'later', dueAt: inTen }).run();
     const res = await a.request('/tasks?due=upcoming&days=7');
     const body = (await res.json()) as TaskJson[];
     expect(body.map((t) => t.title)).toEqual(['soon']);
@@ -118,25 +118,46 @@ describe('tasks routes', () => {
     runMigrations(db);
     const a = createApp(db);
     db.insert(tasks)
-      .values({ title: 'before range', dueAt: new Date('2026-02-15T00:00:00Z'), position: 1 })
+      .values({
+        userId: LOCAL_USER_ID,
+        title: 'before range',
+        dueAt: new Date('2026-02-15T00:00:00Z'),
+        position: 1,
+      })
       .run();
     db.insert(tasks)
       .values({
+        userId: LOCAL_USER_ID,
         title: 'on dueFrom boundary',
         dueAt: new Date('2026-03-01T00:00:00Z'),
         position: 2,
       })
       .run();
     db.insert(tasks)
-      .values({ title: 'inside range', dueAt: new Date('2026-03-15T00:00:00Z'), position: 3 })
+      .values({
+        userId: LOCAL_USER_ID,
+        title: 'inside range',
+        dueAt: new Date('2026-03-15T00:00:00Z'),
+        position: 3,
+      })
       .run();
     db.insert(tasks)
-      .values({ title: 'on dueTo boundary', dueAt: new Date('2026-03-31T00:00:00Z'), position: 4 })
+      .values({
+        userId: LOCAL_USER_ID,
+        title: 'on dueTo boundary',
+        dueAt: new Date('2026-03-31T00:00:00Z'),
+        position: 4,
+      })
       .run();
     db.insert(tasks)
-      .values({ title: 'after range', dueAt: new Date('2026-04-15T00:00:00Z'), position: 5 })
+      .values({
+        userId: LOCAL_USER_ID,
+        title: 'after range',
+        dueAt: new Date('2026-04-15T00:00:00Z'),
+        position: 5,
+      })
       .run();
-    db.insert(tasks).values({ title: 'no due date', position: 6 }).run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'no due date', position: 6 }).run();
 
     const res = await a.request('/tasks?due_from=2026-03-01&due_to=2026-03-31');
     const body = (await res.json()) as TaskJson[];
@@ -153,18 +174,22 @@ describe('tasks routes', () => {
     const a = createApp(db);
     const [projA] = db
       .insert(projects)
-      .values({ name: 'A', color: '#111111', position: 1 })
+      .values({ userId: LOCAL_USER_ID, name: 'A', color: '#111111', position: 1 })
       .returning()
       .all();
     const [projB] = db
       .insert(projects)
-      .values({ name: 'B', color: '#222222', position: 2 })
+      .values({ userId: LOCAL_USER_ID, name: 'B', color: '#222222', position: 2 })
       .returning()
       .all();
     const today = new Date();
     today.setHours(12, 0, 0, 0);
-    db.insert(tasks).values({ title: 'A today', dueAt: today, projectId: projA!.id }).run();
-    db.insert(tasks).values({ title: 'B today', dueAt: today, projectId: projB!.id }).run();
+    db.insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'A today', dueAt: today, projectId: projA!.id })
+      .run();
+    db.insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'B today', dueAt: today, projectId: projB!.id })
+      .run();
 
     const res = await a.request(`/tasks?due=today&project_id=${projA!.id}`);
     const body = (await res.json()) as TaskJson[];

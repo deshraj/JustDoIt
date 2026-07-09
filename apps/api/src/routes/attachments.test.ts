@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDb, runMigrations, taskService } from '@justdoit/core';
+import { createDb, runMigrations, taskService, LOCAL_USER_ID } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface AttachmentJson {
@@ -26,7 +26,7 @@ async function harness() {
 describe('attachment routes', () => {
   it('uploads (multipart), lists, downloads, and deletes', async () => {
     const { db, app } = await harness();
-    const task = taskService.create(db, { title: 'T' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'T' });
 
     const form = new FormData();
     form.append('file', new File(['hello'], 'note.txt', { type: 'text/plain' }));
@@ -49,7 +49,7 @@ describe('attachment routes', () => {
 
   it('400s on a disallowed type', async () => {
     const { db, app } = await harness();
-    const task = taskService.create(db, { title: 'T' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'T' });
     const form = new FormData();
     form.append('file', new File(['x'], 'a.exe', { type: 'application/x-msdownload' }));
     const up = await app.request(`/tasks/${task.id}/attachments`, { method: 'POST', body: form });
@@ -64,7 +64,7 @@ describe('attachment routes', () => {
 
   it('emits a header-safe Content-Disposition for hostile filenames', async () => {
     const { db, app } = await harness();
-    const task = taskService.create(db, { title: 'T' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'T' });
 
     const form = new FormData();
     // Quote + control char (newline) that would break the header if inlined.

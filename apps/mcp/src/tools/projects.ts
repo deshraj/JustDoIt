@@ -1,9 +1,18 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { projectService, tagService, taskService, type Db } from '@justdoit/core';
+import {
+  LOCAL_USER_ID,
+  projectService,
+  tagService,
+  taskService,
+  type Ctx,
+  type Db,
+} from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 export function registerProjectTools(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+
   server.registerTool(
     'create_project',
     {
@@ -16,7 +25,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
         description: z.string().optional(),
       },
     },
-    (args) => guard(() => projectService.create(db, args)),
+    (args) => guard(() => projectService.create(ctx, args)),
   );
 
   server.registerTool(
@@ -30,7 +39,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
     // only archived, false => only active, undefined => both), so "include archived"
     // maps to "no filter" rather than "archived: true".
     ({ includeArchived }) =>
-      guard(() => projectService.list(db, includeArchived ? {} : { archived: false })),
+      guard(() => projectService.list(ctx, includeArchived ? {} : { archived: false })),
   );
 
   server.registerTool(
@@ -49,15 +58,15 @@ export function registerProjectTools(server: McpServer, db: Db): void {
         // Validate the task exists BEFORE creating any tag, so a missing task can't
         // orphan a freshly-created tag row (tagService.get/attach would throw only
         // after the tag was already inserted). NotFound propagates as an isError.
-        taskService.get(db, taskId);
+        taskService.get(ctx, taskId);
         // NOTE (deviation): `tagService.create` (Phase 1) throws `ConflictError` on a
         // duplicate `name` rather than upserting — the plan's draft assumed an
         // idempotent create. So this looks the tag up by name via `tagService.list`
         // first and only creates it when absent, per the plan's own documented
         // fallback for that case.
-        const existing = tagService.list(db).find((t) => t.name === name);
-        const tag = existing ?? tagService.create(db, { name, color });
-        tagService.attach(db, taskId, tag.id);
+        const existing = tagService.list(ctx).find((t) => t.name === name);
+        const tag = existing ?? tagService.create(ctx, { name, color });
+        tagService.attach(ctx, taskId, tag.id);
         return { taskId, tag };
       }),
   );

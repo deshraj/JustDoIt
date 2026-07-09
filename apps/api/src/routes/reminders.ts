@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { reminderService, createReminderBody, updateReminderBody, type Db } from '@justdoit/core';
+import { reminderService, createReminderBody, updateReminderBody } from '@justdoit/core';
+import type { AppEnv } from '../context';
 
 const listQuery = z.object({
   taskId: z.string().uuid().optional(),
@@ -11,23 +12,23 @@ const listQuery = z.object({
     .optional(),
 });
 
-export function reminderRoutes(db: Db): Hono {
-  const r = new Hono();
+export function reminderRoutes(): Hono<AppEnv> {
+  const r = new Hono<AppEnv>();
 
   r.get('/', zValidator('query', listQuery), (c) =>
-    c.json(reminderService.list(db, c.req.valid('query'))),
+    c.json(reminderService.list(c.var.ctx, c.req.valid('query'))),
   );
 
   r.post('/', zValidator('json', createReminderBody), (c) =>
-    c.json(reminderService.create(db, c.req.valid('json')), 201),
+    c.json(reminderService.create(c.var.ctx, c.req.valid('json')), 201),
   );
 
   r.patch('/:id', zValidator('json', updateReminderBody), (c) =>
-    c.json(reminderService.update(db, c.req.param('id'), c.req.valid('json'))),
+    c.json(reminderService.update(c.var.ctx, c.req.param('id'), c.req.valid('json'))),
   );
 
   r.delete('/:id', (c) => {
-    reminderService.remove(db, c.req.param('id'));
+    reminderService.remove(c.var.ctx, c.req.param('id'));
     return c.body(null, 204);
   });
 

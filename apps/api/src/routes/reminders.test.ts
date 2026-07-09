@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createDb, runMigrations, tasks, type Db } from '@justdoit/core';
+import { createDb, runMigrations, tasks, LOCAL_USER_ID, type Db } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface ReminderJson {
@@ -23,7 +23,11 @@ describe('reminders routes', () => {
 
   beforeEach(() => {
     ({ app, db } = setup());
-    const [t] = db.insert(tasks).values({ title: 'ping me' }).returning().all();
+    const [t] = db
+      .insert(tasks)
+      .values({ userId: LOCAL_USER_ID, title: 'ping me' })
+      .returning()
+      .all();
     taskId = t!.id;
   });
 

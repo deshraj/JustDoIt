@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations, tasks, reminderService } from '@justdoit/core';
+import { createDb, runMigrations, tasks, reminderService, LOCAL_USER_ID } from '@justdoit/core';
 import { runReminderTick, type Notifier } from './scheduler';
 
 function setup() {
   const { db } = createDb(':memory:');
   runMigrations(db);
-  const [task] = db.insert(tasks).values({ title: 'stand up' }).returning().all();
-  return { db, taskId: task!.id };
+  const [task] = db
+    .insert(tasks)
+    .values({ userId: LOCAL_USER_ID, title: 'stand up' })
+    .returning()
+    .all();
+  return { db, ctx: { db, userId: LOCAL_USER_ID }, taskId: task!.id };
 }
 
 class FakeNotifier implements Notifier {
@@ -18,10 +22,10 @@ class FakeNotifier implements Notifier {
 
 describe('runReminderTick', () => {
   it('fires + marks due reminders and leaves future ones alone', () => {
-    const { db, taskId } = setup();
+    const { db, ctx, taskId } = setup();
     const now = new Date('2026-06-01T12:00:00Z');
-    const due = reminderService.create(db, { taskId, remindAt: new Date('2026-06-01T11:00:00Z') });
-    const future = reminderService.create(db, {
+    const due = reminderService.create(ctx, { taskId, remindAt: new Date('2026-06-01T11:00:00Z') });
+    const future = reminderService.create(ctx, {
       taskId,
       remindAt: new Date('2026-06-01T13:00:00Z'),
     });
@@ -31,14 +35,14 @@ describe('runReminderTick', () => {
 
     expect(count).toBe(1);
     expect(notifier.sent).toEqual([{ title: 'justdoit', message: 'stand up' }]);
-    expect(reminderService.get(db, due.id).delivered).toBe(true);
-    expect(reminderService.get(db, future.id).delivered).toBe(false);
+    expect(reminderService.get(ctx, due.id).delivered).toBe(true);
+    expect(reminderService.get(ctx, future.id).delivered).toBe(false);
   });
 
   it('is idempotent — a second tick fires nothing', () => {
-    const { db, taskId } = setup();
+    const { db, ctx, taskId } = setup();
     const now = new Date('2026-06-01T12:00:00Z');
-    reminderService.create(db, { taskId, remindAt: new Date('2026-06-01T11:00:00Z') });
+    reminderService.create(ctx, { taskId, remindAt: new Date('2026-06-01T11:00:00Z') });
     const notifier = new FakeNotifier();
     runReminderTick(db, notifier, now);
     expect(runReminderTick(db, notifier, now)).toBe(0);

@@ -3,6 +3,7 @@ import { createDb, runMigrations } from '../db/client';
 import { events, type DomainEvent } from '../events/bus';
 import { taskService } from './task-service';
 import { projectService } from './project-service';
+import { LOCAL_USER_ID } from '../constants';
 
 describe('service event emission', () => {
   beforeEach(() => events.reset());
@@ -13,8 +14,9 @@ describe('service event emission', () => {
     const seen: DomainEvent[] = [];
     events.subscribe((e) => seen.push(e));
 
-    const task = taskService.create(db, { title: 'Ship it' });
-    taskService.setStatus(db, task.id, 'in_progress');
+    const ctx = { db, userId: LOCAL_USER_ID };
+    const task = taskService.create(ctx, { title: 'Ship it' });
+    taskService.setStatus(ctx, task.id, 'in_progress');
 
     expect(seen.map((e) => e.type)).toEqual(['task.created', 'task.status_changed']);
     expect(seen[0]).toMatchObject({ entityType: 'task', entityId: task.id });
@@ -27,7 +29,7 @@ describe('service event emission', () => {
     runMigrations(db);
     const seen: DomainEvent[] = [];
     events.subscribe((e) => seen.push(e));
-    const project = projectService.create(db, { name: 'Work' });
+    const project = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'Work' });
     expect(seen[0]).toMatchObject({ type: 'project.created', entityId: project.id });
   });
 });

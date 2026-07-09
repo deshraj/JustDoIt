@@ -15,9 +15,10 @@ export const desktopNotifier: Notifier = {
 export function runReminderTick(db: Db, notify: Notifier, now: Date): number {
   const due = reminderService.dueReminders(db, now);
   for (const reminder of due) {
-    const task = taskService.get(db, reminder.taskId);
+    const ctx = { db, userId: reminder.userId };
+    const task = taskService.get(ctx, reminder.taskId);
     notify.notify({ title: 'justdoit', message: task.title });
-    reminderService.markDelivered(db, reminder.id);
+    reminderService.markDelivered(ctx, reminder.id);
   }
   return due.length;
 }

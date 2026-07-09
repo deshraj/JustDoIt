@@ -1,7 +1,8 @@
 import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
-import type { Db } from '../db';
 import { projects, tags, taskTags, tasks, timeEntries } from '../db/schema';
 import type { TimeReportGroupBy, TimeReportQuery } from '../schemas/report-schema';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 
 export interface TimeReportBucket {
   key: string;
@@ -36,6 +37,7 @@ export const reportService = {
   /**
    * Aggregate closed time entries (durationSeconds IS NOT NULL) into totals grouped
    * by UTC day / project / tag, plus a per-task estimate-vs-actual breakdown.
+   * Every source query is scoped to `ctx.userId`.
    *
    * - `day` buckets key on `startedAt.toISOString().slice(0, 10)` (UTC).
    * - `project` buckets key on projectId; tasks with no project fall into a
@@ -45,12 +47,12 @@ export const reportService = {
    *   the grand total. Tagless tasks fall into a synthetic `untagged` bucket.
    * - A currently running timer (endedAt IS NULL) contributes nothing until stopped.
    */
-  timeReport(db: Db, query: TimeReportQuery): TimeReport {
-    const conds = [isNotNull(timeEntries.durationSeconds)];
+  timeReport(ctx: Ctx, query: TimeReportQuery): TimeReport {
+    const conds = [userScope(timeEntries, ctx.userId), isNotNull(timeEntries.durationSeconds)];
     if (query.from) conds.push(gte(timeEntries.startedAt, query.from));
     if (query.to) conds.push(lte(timeEntries.startedAt, query.to));
 
-    const rows = db
+    const rows = ctx.db
       .select({
         taskId: timeEntries.taskId,
         startedAt: timeEntries.startedAt,
@@ -67,16 +69,22 @@ export const reportService = {
     // Lookups needed only for specific groupings.
     const projectNames = new Map<string, string>();
     if (query.groupBy === 'project') {
-      for (const p of db.select({ id: projects.id, name: projects.name }).from(projects).all()) {
+      for (const p of ctx.db
+        .select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .where(userScope(projects, ctx.userId))
+        .all()) {
         projectNames.set(p.id, p.name);
       }
     }
     const tagsByTask = new Map<string, { id: string; name: string }[]>();
     if (query.groupBy === 'tag') {
-      const rel = db
+      const rel = ctx.db
         .select({ taskId: taskTags.taskId, tagId: tags.id, tagName: tags.name })
         .from(taskTags)
         .innerJoin(tags, eq(taskTags.tagId, tags.id))
+        .innerJoin(tasks, eq(taskTags.taskId, tasks.id))
+        .where(userScope(tasks, ctx.userId))
         .all();
       for (const r of rel) {
         const list = tagsByTask.get(r.taskId) ?? [];

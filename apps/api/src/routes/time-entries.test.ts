@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createDb, runMigrations, tasks, type Db } from '@justdoit/core';
+import { createDb, runMigrations, tasks, LOCAL_USER_ID, type Db } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TimeEntryJson {
@@ -16,7 +16,7 @@ let db: Db;
 let app: ReturnType<typeof createApp>;
 
 function seedTask(title = 'Task A'): string {
-  const [t] = db.insert(tasks).values({ title }).returning().all();
+  const [t] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title }).returning().all();
   return t!.id;
 }
 
