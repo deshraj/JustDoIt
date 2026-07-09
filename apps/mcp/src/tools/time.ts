@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { timeService, reportService, timeReportQuerySchema, type Db } from '@justdoit/core';
+import {
+  timeService,
+  reportService,
+  timeReportQuerySchema,
+  LOCAL_USER_ID,
+  type Ctx,
+  type Db,
+} from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 // Restrict to string/number/Date so a bare `null` is rejected rather than
@@ -8,6 +15,8 @@ import { guard } from '../helpers.js';
 const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
 export function registerTimeTools(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+
   server.registerTool(
     'start_timer',
     {
@@ -15,7 +24,7 @@ export function registerTimeTools(server: McpServer, db: Db): void {
       description: 'Start a running timer on a task (one running timer enforced by core).',
       inputSchema: { taskId: z.string() },
     },
-    ({ taskId }) => guard(() => timeService.startTimer(db, taskId, new Date())),
+    ({ taskId }) => guard(() => timeService.startTimer(ctx, taskId, new Date())),
   );
 
   server.registerTool(
@@ -25,7 +34,7 @@ export function registerTimeTools(server: McpServer, db: Db): void {
       description: 'Stop the running timer (defaults to the currently running one).',
       inputSchema: { taskId: z.string().optional() },
     },
-    ({ taskId }) => guard(() => timeService.stopTimer(db, { taskId }, new Date())),
+    ({ taskId }) => guard(() => timeService.stopTimer(ctx, { taskId }, new Date())),
   );
 
   server.registerTool(
@@ -52,7 +61,7 @@ export function registerTimeTools(server: McpServer, db: Db): void {
         // which fails core's schema/typecheck when omitted. Default to `now` here so
         // an agent can log "X minutes" without specifying a start time.
         return timeService.logManual(
-          db,
+          ctx,
           { taskId, startedAt: startedAt ?? now, durationSeconds: minutes * 60, note },
           now,
         );

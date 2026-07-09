@@ -3,6 +3,8 @@ import { createDb, runMigrations, type Db } from '../db';
 import { projects, tags, taskTags, tasks } from '../db/schema';
 import { timeService } from './time-service';
 import { reportService } from './report-service';
+import { LOCAL_USER_ID } from '../constants';
+import type { Ctx } from '../context';
 
 const D1_0900 = new Date('2026-07-08T09:00:00.000Z');
 const D1_1000 = new Date('2026-07-08T10:00:00.000Z');
@@ -10,25 +12,27 @@ const D2_0900 = new Date('2026-07-09T09:00:00.000Z');
 
 describe('reportService.timeReport', () => {
   let db: Db;
+  let ctx: Ctx;
   beforeEach(() => {
     ({ db } = createDb(':memory:'));
     runMigrations(db);
+    ctx = { db, userId: LOCAL_USER_ID };
   });
 
   it('groups by UTC day and sums only closed entries', () => {
     const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
     timeService.logManual(
-      db,
+      ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
       D1_0900,
     );
     timeService.logManual(
-      db,
+      ctx,
       { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 },
       D2_0900,
     );
     // A running timer must NOT be counted.
-    timeService.startTimer(db, t!.id, D2_0900);
+    timeService.startTimer(ctx, t!.id, D2_0900);
 
     const report = reportService.timeReport(db, { groupBy: 'day' });
     expect(report.totalSeconds).toBe(5400);
@@ -41,12 +45,12 @@ describe('reportService.timeReport', () => {
   it('respects the from/to window on startedAt', () => {
     const [t] = db.insert(tasks).values({ title: 'A' }).returning().all();
     timeService.logManual(
-      db,
+      ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
       D1_0900,
     );
     timeService.logManual(
-      db,
+      ctx,
       { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 },
       D2_0900,
     );
@@ -66,12 +70,12 @@ describe('reportService.timeReport', () => {
       .all()[0]!;
     const noProj = db.insert(tasks).values({ title: 'B' }).returning().all()[0]!;
     timeService.logManual(
-      db,
+      ctx,
       { taskId: withProj.id, startedAt: D1_0900, durationSeconds: 3600 },
       D1_0900,
     );
     timeService.logManual(
-      db,
+      ctx,
       { taskId: noProj.id, startedAt: D1_0900, durationSeconds: 600 },
       D1_0900,
     );
@@ -93,7 +97,7 @@ describe('reportService.timeReport', () => {
     db.insert(taskTags).values({ taskId: t!.id, tagId: red!.id }).run();
     db.insert(taskTags).values({ taskId: t!.id, tagId: blue!.id }).run();
     timeService.logManual(
-      db,
+      ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
       D1_0900,
     );
@@ -106,7 +110,7 @@ describe('reportService.timeReport', () => {
 
   it('computes estimate vs actual with variance', () => {
     const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
-    timeService.logManual(db, { taskId: t!.id, startedAt: D1_0900, endedAt: D1_1000 }, D1_0900);
+    timeService.logManual(ctx, { taskId: t!.id, startedAt: D1_0900, endedAt: D1_1000 }, D1_0900);
     const report = reportService.timeReport(db, { groupBy: 'day' });
     expect(report.estimateVsActual).toEqual([
       {
