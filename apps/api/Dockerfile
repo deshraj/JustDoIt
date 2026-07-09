@@ -35,10 +35,13 @@ COPY package.json pnpm-workspace.yaml ./
 COPY packages/core ./packages/core
 COPY apps/mcp ./apps/mcp
 COPY apps/api ./apps/api
-# Non-root user; owned /data mountpoint for the volume.
-RUN groupadd -r app && useradd -r -g app -d /app app \
-  && mkdir -p /data/files && chown -R app:app /data /app
-USER app
+# Non-root user; `gosu` lets the entrypoint fix volume ownership as root, then
+# drop to `app`. (The runtime-mounted volume overrides any build-time chown.)
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd -r app && useradd -r -g app -d /app app \
+  && mkdir -p /data/files && chown -R app:app /data /app \
+  && chmod +x /app/apps/api/docker-entrypoint.sh
 ENV JUSTDOIT_API_HOST=0.0.0.0 \
     JUSTDOIT_API_PORT=8787 \
     JUSTDOIT_DB=/data/justdoit.db \
@@ -46,4 +49,6 @@ ENV JUSTDOIT_API_HOST=0.0.0.0 \
 EXPOSE 8787
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.JUSTDOIT_API_PORT||8787)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+# Runs as root, chowns the mounted volume, then exec's the server as `app` (gosu).
+ENTRYPOINT ["/app/apps/api/docker-entrypoint.sh"]
 CMD ["pnpm", "--filter", "@justdoit/api", "start"]
