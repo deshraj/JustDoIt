@@ -118,3 +118,64 @@ the custom domain, then redeploy `web` (`railway up --service web`).
 ## 8. Smoke checklist
 
 See "Post-deploy smoke checklist" below — run every item before declaring go-live.
+
+## Post-deploy smoke checklist
+
+Run in order against the live deployment. A single failure blocks go-live.
+
+1. **api health + auth-gating.** Health check over internal DNS (from the `api`
+   service shell, or `web`'s shell):
+
+   ```bash
+   node -e "fetch('http://api.railway.internal:8787/health').then(r=>r.text()).then(console.log)"
+   ```
+
+   Expect `{"status":"ok"}`. `api` **does** have a public domain (for external
+   `/mcp`), but **every route requires auth** — confirm an anonymous public
+   request is rejected:
+
+   ```bash
+   curl -fsS -o /dev/null -w "%{http_code}\n" https://<api-public-domain>/projects   # expect 401
+   ```
+
+2. **web loads + redirects to sign-in.** Open `https://<your-web-domain>` in a
+   private window → you are redirected to GitHub sign-in (unauthenticated users
+   never see app data).
+
+3. **Allowlisted sign-in works.** Sign in with a GitHub account **in**
+   `AUTH_ALLOWLIST` → you land in the app. A `users` row is created.
+
+4. **Non-allowlisted sign-in is rejected.** Sign in with an account **not** in
+   the allowlist → clear "not allowed" screen, no app access, no data created.
+
+5. **Create a task in the UI.** Add a task; reload → it persists (proves the
+   web→proxy→api→volume path and on-disk `/data/justdoit.db`).
+
+6. **Create an API key.** Settings → API keys → create one; copy the raw key
+   (shown once). Confirm a second load shows only its name/metadata, never the raw key.
+
+7. **Public MCP with the key.** From your laptop, hit `api`'s key-gated `/mcp`
+   route on the api public domain:
+
+   ```bash
+   curl -fsS https://<api-public-domain>/mcp -X POST \
+     -H "X-API-Key: <raw-key>" \
+     -H 'content-type: application/json' \
+     -H 'accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
+   ```
+
+   Expect an MCP `initialize` response (and an `mcp-session-id` header). A request
+   with **no**/wrong key → `401`.
+
+8. **Cross-user isolation (the invariant, spec §2).** Sign in as a **second**
+   allowlisted account in another browser; create a task there. Then:
+   - As user A, list tasks → user B's task is absent.
+   - Using user A's API key, request user B's task id → `404` (NotFound),
+     never user B's data.
+
+   Both must hold. This is the go-live gate.
+
+9. **Reminders surface in-app.** A task with a past `remindAt` shows the
+   due/overdue indicator (container has no desktop notifications; the scheduler
+   still marks reminders delivered).
