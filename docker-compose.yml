@@ -1,0 +1,45 @@
+# Local hosted-mode simulation. Mirrors the Railway topology:
+#   web (public) → api (volume owner; also serves the key-gated /mcp route).
+# There is no separate mcp service (D1). Usage: docker compose up --build (Ctrl-C to stop).
+# This is a test harness, NOT the production deploy — Railway builds the same
+# Dockerfiles and injects the same env; on Railway the web→api hop uses internal DNS.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      JUSTDOIT_MODE: hosted
+      JUSTDOIT_DB: /data/justdoit.db
+      JUSTDOIT_FILES_DIR: /data/files
+      JUSTDOIT_API_HOST: 0.0.0.0
+      INTERNAL_API_SECRET: local-internal-secret
+    volumes:
+      - jdi-data:/data
+    # No published ports here: this sim exercises the web→api internal hop only.
+    # (On Railway `api` also gets a public domain for external /mcp; every route
+    #  still requires auth.)
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - api
+    environment:
+      JUSTDOIT_MODE: hosted
+      AUTH_SECRET: local-auth-secret-not-real
+      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID}
+      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET}
+      AUTH_ALLOWLIST: ${AUTH_ALLOWLIST}
+      AUTH_URL: http://localhost:3000
+      INTERNAL_API_URL: http://api:8787
+      INTERNAL_API_SECRET: local-internal-secret
+      NEXT_PUBLIC_API_URL: /api/backend
+    ports:
+      - '3000:3000'
+    # External MCP is served by api at /mcp (reached via the web proxy or the api
+    # public domain on Railway) — there is no separate mcp service.
+
+volumes:
+  jdi-data:
