@@ -3,7 +3,9 @@ import { createDb, runMigrations, type Db } from '../db';
 import { parseQuickAdd, quickAddService } from './quick-add';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
+import { userService } from './user-service';
 import { LOCAL_USER_ID } from '../constants';
+import type { Ctx } from '../context';
 
 // Wed 2026-07-08 10:00 local
 const NOW = new Date(2026, 6, 8, 10, 0, 0, 0);
@@ -49,30 +51,51 @@ describe('parseQuickAdd', () => {
 
 describe('quickAddService.create', () => {
   let db: Db;
+  let ctx: Ctx;
   beforeEach(() => {
     const created = createDb(':memory:');
     runMigrations(created.db);
     db = created.db;
+    ctx = { db, userId: LOCAL_USER_ID };
   });
 
   it('creates the task, project, and tags from one string', () => {
-    const task = quickAddService.create(db, 'buy milk tomorrow 5pm @errands-list #errands p1', NOW);
+    const task = quickAddService.create(
+      ctx,
+      'buy milk tomorrow 5pm @errands-list #errands p1',
+      NOW,
+    );
     expect(task.title).toBe('buy milk');
     expect(task.priority).toBe('p1');
     expect(task.dueAt).toEqual(new Date(2026, 6, 9, 17, 0, 0, 0));
-    expect(projectService.get({ db, userId: LOCAL_USER_ID }, task.projectId!).name).toBe(
-      'errands-list',
-    );
-    expect(tagService.listForTask({ db, userId: LOCAL_USER_ID }, task.id).map((t) => t.name)).toEqual([
-      'errands',
-    ]);
+    expect(projectService.get(ctx, task.projectId!).name).toBe('errands-list');
+    expect(tagService.listForTask(ctx, task.id).map((t) => t.name)).toEqual(['errands']);
   });
 
   it('reuses an existing project and tag by name', () => {
-    const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'work' });
-    const tag = tagService.create({ db, userId: LOCAL_USER_ID }, { name: 'writing' });
-    const task = quickAddService.create(db, 'draft @work #writing', NOW);
+    const proj = projectService.create(ctx, { name: 'work' });
+    const tag = tagService.create(ctx, { name: 'writing' });
+    const task = quickAddService.create(ctx, 'draft @work #writing', NOW);
     expect(task.projectId).toBe(proj.id);
-    expect(tagService.listForTask({ db, userId: LOCAL_USER_ID }, task.id)[0]!.id).toBe(tag.id);
+    expect(tagService.listForTask(ctx, task.id)[0]!.id).toBe(tag.id);
+  });
+
+  describe('cross-tenant isolation', () => {
+    it('per-user project/tag name reuse: B gets a distinct project/tag from A', () => {
+      userService.create(db, { id: 'user-b', name: 'B' });
+      const a: Ctx = { db, userId: LOCAL_USER_ID };
+      const b: Ctx = { db, userId: 'user-b' };
+
+      const aTask = quickAddService.create(a, 'a task @Shared #shared', NOW);
+      const bTask = quickAddService.create(b, 'b task @Shared #shared', NOW);
+
+      expect(aTask.projectId).not.toBe(bTask.projectId);
+      const aTags = tagService.listForTask(a, aTask.id);
+      const bTags = tagService.listForTask(b, bTask.id);
+      expect(aTags[0]!.id).not.toBe(bTags[0]!.id);
+      // Each user's project is only visible to them.
+      expect(() => projectService.get(a, bTask.projectId!)).toThrow();
+      expect(() => projectService.get(b, aTask.projectId!)).toThrow();
+    });
   });
 });

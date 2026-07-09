@@ -17,7 +17,7 @@ export function registerMiscTools(server: McpServer, db: Db): void {
       description: 'Create a task from natural language, e.g. "buy milk tomorrow 5pm #errands p1".',
       inputSchema: { text: z.string().min(1) },
     },
-    ({ text }) => guard(() => quickAddService.create(db, text, new Date())),
+    ({ text }) => guard(() => quickAddService.create(ctx, text, new Date())),
   );
 
   server.registerTool(
