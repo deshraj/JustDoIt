@@ -1,5 +1,4 @@
 import { and, or, eq, gte, lte, asc, isNull, like, inArray, type SQL } from 'drizzle-orm';
-import type { Db } from '../db';
 import {
   tasks,
   taskTags,
@@ -21,7 +20,6 @@ import type { DueFilter } from '../schemas/schedule';
 import { emit } from '../events/emit';
 import { userScope } from '../scope';
 import type { Ctx } from '../context';
-import { LOCAL_USER_ID } from '../constants';
 
 export interface TaskListFilters {
   status?: TaskStatus;
@@ -222,16 +220,19 @@ export const taskService = {
       .all();
   },
 
-  // NOTE: bulkUpdate/bulkDelete are converted to Ctx in Task 6 (kept on a bare
-  // `db` here so the Task 5 boundary stays a minimal, reviewable diff).
   /** Apply the same patch to many tasks at once; emits per-task events so
-   * activity log + SSE live sync stay accurate. All ids must exist. */
-  bulkUpdate(db: Db, ids: string[], patch: BulkPatch): Task[] {
+   * activity log + SSE live sync stay accurate. All ids must exist and be owned
+   * by ctx.userId — a foreign id is treated as missing (all-or-nothing). */
+  bulkUpdate(ctx: Ctx, ids: string[], patch: BulkPatch): Task[] {
     if (ids.length === 0) throw new ValidationError('bulkUpdate requires at least one id');
 
-    const existing = db.select().from(tasks).where(inArray(tasks.id, ids)).all();
+    const existing = ctx.db
+      .select()
+      .from(tasks)
+      .where(and(userScope(tasks, ctx.userId), inArray(tasks.id, ids)))
+      .all();
     const byId = new Map(existing.map((t) => [t.id, t]));
-    const missing = ids.filter((id) => !byId.has(id));
+    const missing = ids.filter((id) => !byId.has(id)); // foreign or unknown ids both land here
     if (missing.length) throw new NotFoundError('Task(s)', missing.join(', '));
 
     const setClause: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() };
@@ -243,11 +244,16 @@ export const taskService = {
     if (patch.priority !== undefined) setClause.priority = patch.priority;
     if (patch.projectId !== undefined) setClause.projectId = patch.projectId;
 
-    db.update(tasks).set(setClause).where(inArray(tasks.id, ids)).run();
+    ctx.db
+      .update(tasks)
+      .set(setClause)
+      .where(and(userScope(tasks, ctx.userId), inArray(tasks.id, ids)))
+      .run();
 
     if (patch.removeTagIds?.length) {
       for (const id of ids) {
-        db.delete(taskTags)
+        ctx.db
+          .delete(taskTags)
           .where(and(eq(taskTags.taskId, id), inArray(taskTags.tagId, patch.removeTagIds)))
           .run();
       }
@@ -255,27 +261,36 @@ export const taskService = {
     if (patch.addTagIds?.length) {
       for (const id of ids) {
         for (const tagId of patch.addTagIds) {
-          db.insert(taskTags).values({ taskId: id, tagId }).onConflictDoNothing().run();
+          ctx.db.insert(taskTags).values({ taskId: id, tagId }).onConflictDoNothing().run();
         }
       }
     }
 
-    const updated = db.select().from(tasks).where(inArray(tasks.id, ids)).all();
+    const updated = ctx.db
+      .select()
+      .from(tasks)
+      .where(and(userScope(tasks, ctx.userId), inArray(tasks.id, ids)))
+      .all();
     for (const t of updated) {
       const before = byId.get(t.id)!;
       if (patch.status !== undefined && before.status !== t.status) {
-        emit(LOCAL_USER_ID, 'task', t.id, 'status_changed', { from: before.status, to: t.status });
+        emit(ctx.userId, 'task', t.id, 'status_changed', { from: before.status, to: t.status });
       }
-      emit(LOCAL_USER_ID, 'task', t.id, 'updated', { patch });
+      emit(ctx.userId, 'task', t.id, 'updated', { patch });
     }
     return updated;
   },
 
-  /** Hard-delete many tasks at once; emits a `task.deleted` event per id. */
-  bulkDelete(db: Db, ids: string[]): { deleted: number } {
+  /** Hard-delete many tasks at once; emits a `task.deleted` event per id.
+   * Non-owned ids are silently skipped (delete is idempotent). */
+  bulkDelete(ctx: Ctx, ids: string[]): { deleted: number } {
     if (ids.length === 0) throw new ValidationError('bulkDelete requires at least one id');
-    const deleted = db.delete(tasks).where(inArray(tasks.id, ids)).returning().all();
-    for (const t of deleted) emit(LOCAL_USER_ID, 'task', t.id, 'deleted', {});
+    const deleted = ctx.db
+      .delete(tasks)
+      .where(and(userScope(tasks, ctx.userId), inArray(tasks.id, ids)))
+      .returning()
+      .all();
+    for (const t of deleted) emit(ctx.userId, 'task', t.id, 'deleted', {});
     return { deleted: deleted.length };
   },
 };

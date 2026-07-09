@@ -110,12 +110,12 @@ export function taskRoutes(db: Db): Hono<AppEnv> {
   // the `:id` param matcher.
   r.patch('/bulk', zValidator('json', bulkPatchSchema), (c) => {
     const { ids, patch } = c.req.valid('json');
-    return c.json({ tasks: taskService.bulkUpdate(db, ids, patch) });
+    return c.json({ tasks: taskService.bulkUpdate(c.var.ctx, ids, patch) });
   });
 
   r.post('/bulk-delete', zValidator('json', bulkDeleteSchema), (c) => {
     const { ids } = c.req.valid('json');
-    return c.json(taskService.bulkDelete(db, ids));
+    return c.json(taskService.bulkDelete(c.var.ctx, ids));
   });
 
   r.get('/:id', (c) => c.json(taskService.get(c.var.ctx, c.req.param('id'))));
