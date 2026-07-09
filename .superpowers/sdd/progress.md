@@ -33,6 +33,9 @@ Phase 6: complete (commits 6245929..08e8fd0, 251 tests total, gates green, web b
 - ALL PHASES COMPLETE + REVIEWED + FIXED.
 
 ## Phase 7 (multitenant hosting)
+
 - [x] 7a Core multitenancy: merged (merge commit, 344 tests incl isolation gate 5/5 + SSE per-user filter; core 161/api 53/mcp 40/web 90). users/api_keys tables, user_id everywhere, Ctx threading, local-user default.
 - [ ] 7b GitHub auth
+- [ ] 7c Railway deploy
+- [x] 7b GitHub auth: merged (367 tests; auth ladder, Auth.js GitHub+allowlist, /api/backend proxy, per-user API keys, api-served key-gated /mcp, apps/mcp stdio-only). Controller fixed signin Suspense prerender (agent made same fix independently).
 - [ ] 7c Railway deploy
