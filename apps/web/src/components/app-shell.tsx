@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Sidebar } from '@/components/sidebar';
 import { QuickAddBar } from '@/components/quick-add-bar';
@@ -9,13 +10,21 @@ import { CommandPalette } from '@/components/command-palette';
 import { useCommandPalette } from '@/hooks/use-command-palette';
 import { Button } from '@/components/ui/button';
 
+// Public/auth routes render bare (no sidebar, top bar, or command palette).
+const CHROMELESS_ROUTES = ['/signin', '/not-allowed'];
+
 /**
  * Minimal, near-borderless shell: fixed sidebar + top bar + content region.
  * Regions are separated by whitespace and a subtle bg-muted elevation on the
  * sidebar rather than 1px border lines, per the design system.
  */
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const { open, setOpen } = useCommandPalette();
+
+  if (CHROMELESS_ROUTES.some((route) => pathname.startsWith(route))) {
+    return <div className="min-h-dvh bg-background text-foreground">{children}</div>;
+  }
 
   return (
     <div className="flex h-dvh bg-background text-foreground">
