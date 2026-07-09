@@ -39,3 +39,4 @@ Phase 6: complete (commits 6245929..08e8fd0, 251 tests total, gates green, web b
 - [ ] 7c Railway deploy
 - [x] 7b GitHub auth: merged (367 tests; auth ladder, Auth.js GitHub+allowlist, /api/backend proxy, per-user API keys, api-served key-gated /mcp, apps/mcp stdio-only). Controller fixed signin Suspense prerender (agent made same fix independently).
 - [ ] 7c Railway deploy
+- [x] 7c Railway deploy: merged (Dockerfiles api+web, railway.json x2, docker-compose, docs/DEPLOY.md; Docker build/run/health/mcp verified). PHASE 7 CODE-COMPLETE.
