@@ -1,5 +1,6 @@
 import {
   activityEntrySchema,
+  apiKeySchema,
   attachmentSchema,
   parseTolerant,
   projectSchema,
@@ -10,6 +11,7 @@ import {
   timeEntrySchema,
   timeReportSchema,
   type ActivityEntry,
+  type ApiKey,
   type Attachment,
   type EstimateVsActual,
   type Project,
@@ -47,6 +49,7 @@ export type {
   ActivityEntry,
   SavedFilter,
   Attachment,
+  ApiKey,
 };
 
 export class ApiError extends Error {
@@ -588,6 +591,25 @@ async function importData(snapshot: unknown): Promise<unknown> {
   return request<unknown>('/import', { method: 'POST', body: json(snapshot) });
 }
 
+// ---------------------------------------------------------------------------
+// API keys
+// ---------------------------------------------------------------------------
+
+async function listApiKeys(): Promise<ApiKey[]> {
+  const data = await request<{ keys: unknown[] }>('/api-keys');
+  return data.keys.map((k) => parseTolerant(apiKeySchema, k, 'apiKey'));
+}
+async function createApiKey(name: string): Promise<{ raw: string; key: ApiKey }> {
+  const data = await request<{ raw: string; key: unknown }>('/api-keys', {
+    method: 'POST',
+    body: json({ name }),
+  });
+  return { raw: data.raw, key: parseTolerant(apiKeySchema, data.key, 'apiKey') };
+}
+async function revokeApiKey(id: string): Promise<void> {
+  await request<void>(`/api-keys/${id}`, { method: 'DELETE' });
+}
+
 export const api = {
   listTasks,
   getTask,
@@ -635,6 +657,9 @@ export const api = {
   listAttachments,
   uploadAttachment,
   deleteAttachment,
+  listApiKeys,
+  createApiKey,
+  revokeApiKey,
 };
 
 export type Api = typeof api;

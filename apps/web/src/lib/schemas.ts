@@ -155,6 +155,14 @@ export const attachmentSchema = z.object({
 });
 export type Attachment = z.infer<typeof attachmentSchema>;
 
+export const apiKeySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.coerce.date(),
+  lastUsedAt: z.coerce.date().nullable(),
+});
+export type ApiKey = z.infer<typeof apiKeySchema>;
+
 /**
  * Parse `data` against `schema`; on mismatch, warn (dev-only) and return the
  * raw data as-is instead of throwing. Keeps the UI resilient to REST shape

@@ -40,4 +40,5 @@ export const qk = {
   attachments: {
     task: (taskId: string) => ['attachments', taskId] as const,
   },
+  apiKeys: ['api-keys'] as const,
 } as const;
