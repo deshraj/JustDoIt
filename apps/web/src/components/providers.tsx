@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
+import { SessionProvider } from 'next-auth/react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { LiveSync } from '@/hooks/use-live-sync';
 import { ShortcutCheatsheet } from '@/components/shortcut-cheatsheet';
@@ -22,12 +23,14 @@ export function Providers({ children }: { children: ReactNode }): ReactNode {
   );
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-      <QueryClientProvider client={queryClient}>
-        <LiveSync />
-        <ShortcutCheatsheet />
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+    <SessionProvider>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+        <QueryClientProvider client={queryClient}>
+          <LiveSync />
+          <ShortcutCheatsheet />
+          <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
+    </SessionProvider>
   );
 }
