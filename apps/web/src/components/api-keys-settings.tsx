@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useApiKeys } from '@/hooks/use-api-keys';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CopyButton } from '@/components/copy-button';
+import { claudeMcpAddCommand, mcpServerUrl } from '@/lib/mcp';
 
 export function ApiKeysSettings(): React.ReactNode {
   const { list, create, revoke } = useApiKeys();
@@ -31,9 +33,31 @@ export function ApiKeysSettings(): React.ReactNode {
       </form>
 
       {freshRaw && (
-        <div role="status" className="rounded-md border border-border bg-muted p-3 text-sm">
-          <p className="mb-1 font-medium">Copy this now — it won’t be shown again:</p>
-          <code className="break-all">{freshRaw}</code>
+        <div
+          role="status"
+          className="space-y-3 rounded-md border border-border bg-muted p-3 text-sm"
+        >
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="font-medium">Copy this now — it won’t be shown again:</p>
+              <CopyButton value={freshRaw} label="Copy key" />
+            </div>
+            <code className="block break-all rounded bg-background px-2 py-1.5">{freshRaw}</code>
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Connect Claude Code
+              </p>
+              <CopyButton
+                value={claudeMcpAddCommand(mcpServerUrl(), freshRaw)}
+                label="Copy command"
+              />
+            </div>
+            <pre className="overflow-x-auto rounded bg-background px-2 py-1.5 text-xs leading-relaxed">
+              <code>{claudeMcpAddCommand(mcpServerUrl(), freshRaw)}</code>
+            </pre>
+          </div>
         </div>
       )}
 

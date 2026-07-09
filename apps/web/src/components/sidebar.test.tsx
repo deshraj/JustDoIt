@@ -6,6 +6,7 @@ import { Sidebar } from './sidebar';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/tasks',
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock('@/lib/api', () => ({
@@ -14,6 +15,7 @@ vi.mock('@/lib/api', () => ({
       { id: 'inbox', name: 'Inbox' },
       { id: 'p1', name: 'Work' },
     ]),
+    createProject: vi.fn(),
   },
 }));
 
@@ -35,5 +37,12 @@ describe('Sidebar', () => {
       '/tasks?project=inbox',
     );
     expect(screen.getByRole('link', { name: 'Work' })).toHaveAttribute('href', '/tasks?project=p1');
+  });
+
+  it('has a Settings link and a New project button', async () => {
+    renderWithClient(<Sidebar />);
+    await screen.findByRole('link', { name: 'Inbox' });
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings');
+    expect(screen.getByRole('button', { name: 'New project' })).toBeInTheDocument();
   });
 });
