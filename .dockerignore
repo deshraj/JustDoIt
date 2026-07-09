@@ -1,0 +1,31 @@
+# deps & build outputs (installed/built inside the image)
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/*.tsbuildinfo
+
+# local databases & data — never bake these into an image
+*.db
+*.db-shm
+*.db-wal
+data/
+**/data/files
+
+# local env & secrets
+.env
+.env.local
+**/.env
+**/.env.local
+
+# vcs / editor / os
+.git
+.gitignore
+.DS_Store
+
+# tests & reports not needed at runtime
+**/test-results
+**/playwright-report
+**/blob-report
+**/coverage
+docs/
