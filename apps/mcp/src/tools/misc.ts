@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { reminderService, quickAddService, type Db } from '@justdoit/core';
+import { reminderService, quickAddService, LOCAL_USER_ID, type Ctx, type Db } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 // Restrict to string/number/Date so a bare `null` is rejected rather than
@@ -9,6 +9,7 @@ import { guard } from '../helpers.js';
 const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
 export function registerMiscTools(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
   server.registerTool(
     'quick_add',
     {
@@ -26,6 +27,6 @@ export function registerMiscTools(server: McpServer, db: Db): void {
       description: 'Schedule a reminder for a task at a given time (ISO 8601).',
       inputSchema: { taskId: z.string(), remindAt: isoDate },
     },
-    ({ taskId, remindAt }) => guard(() => reminderService.create(db, { taskId, remindAt })),
+    ({ taskId, remindAt }) => guard(() => reminderService.create(ctx, { taskId, remindAt })),
   );
 }
