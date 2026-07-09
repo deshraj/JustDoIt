@@ -9,6 +9,7 @@ describe('EventBus', () => {
     const off = bus.subscribe((e) => seen.push(e));
     bus.publish({
       type: 'task.created',
+      userId: 'u1',
       entityType: 'task',
       entityId: 't1',
       action: 'created',
@@ -17,6 +18,7 @@ describe('EventBus', () => {
     off();
     bus.publish({
       type: 'task.updated',
+      userId: 'u1',
       entityType: 'task',
       entityId: 't1',
       action: 'updated',
@@ -34,7 +36,7 @@ describe('EventBus', () => {
     });
     bus.subscribe((e) => seen.push(e.type));
     expect(() =>
-      bus.publish({ type: 'x', entityType: 'task', entityId: 'a', action: 'updated', at: 0 }),
+      bus.publish({ type: 'x', userId: 'u1', entityType: 'task', entityId: 'a', action: 'updated', at: 0 }),
     ).not.toThrow();
     expect(seen).toEqual(['x']);
   });
@@ -46,10 +48,11 @@ describe('emit helper + singleton', () => {
   it('stamps the dotted type and publishes to the singleton bus', () => {
     const seen: DomainEvent[] = [];
     events.subscribe((e) => seen.push(e));
-    emit('task', 't1', 'status_changed', { from: 'todo', to: 'in_progress' }, 123);
-    emit('time_entry', 'e1', 'started', undefined, 456);
+    emit('u1', 'task', 't1', 'status_changed', { from: 'todo', to: 'in_progress' }, 123);
+    emit('u1', 'time_entry', 'e1', 'started', undefined, 456);
     expect(seen[0]).toMatchObject({
       type: 'task.status_changed',
+      userId: 'u1',
       entityType: 'task',
       entityId: 't1',
       at: 123,

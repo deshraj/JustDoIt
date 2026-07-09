@@ -19,6 +19,7 @@ import { assertValidWindow, spawnNextRecurrence } from './schedule-service';
 import { assertValidRecurrence } from '../recurrence';
 import type { DueFilter } from '../schemas/schedule';
 import { emit } from '../events/emit';
+import { LOCAL_USER_ID } from '../constants';
 
 export interface TaskListFilters {
   status?: TaskStatus;
@@ -88,7 +89,7 @@ export const taskService = {
       .values({ ...parsed, position })
       .returning()
       .all();
-    emit('task', row!.id, 'created', { title: row!.title });
+    emit(LOCAL_USER_ID, 'task', row!.id, 'created', { title: row!.title });
     return row!;
   },
 
@@ -155,7 +156,7 @@ export const taskService = {
       .where(eq(tasks.id, id))
       .returning()
       .all();
-    emit('task', row!.id, 'updated', { patch });
+    emit(LOCAL_USER_ID, 'task', row!.id, 'updated', { patch });
     return row!;
   },
 
@@ -168,7 +169,7 @@ export const taskService = {
       .where(eq(tasks.id, id))
       .returning()
       .all();
-    emit('task', row!.id, 'status_changed', { from: previous.status, to: row!.status });
+    emit(LOCAL_USER_ID, 'task', row!.id, 'status_changed', { from: previous.status, to: row!.status });
     return row!;
   },
 
@@ -183,14 +184,14 @@ export const taskService = {
     }
     const completed = taskService.setStatus(db, id, 'done');
     spawnNextRecurrence(db, task, now);
-    emit('task', completed.id, 'completed', {});
+    emit(LOCAL_USER_ID, 'task', completed.id, 'completed', {});
     return completed;
   },
 
   remove(db: Db, id: string): void {
     taskService.get(db, id);
     db.delete(tasks).where(eq(tasks.id, id)).run();
-    emit('task', id, 'deleted', {});
+    emit(LOCAL_USER_ID, 'task', id, 'deleted', {});
   },
 
   addSubtask(db: Db, parentId: string, input: CreateTaskInput): Task {
@@ -250,9 +251,9 @@ export const taskService = {
     for (const t of updated) {
       const before = byId.get(t.id)!;
       if (patch.status !== undefined && before.status !== t.status) {
-        emit('task', t.id, 'status_changed', { from: before.status, to: t.status });
+        emit(LOCAL_USER_ID, 'task', t.id, 'status_changed', { from: before.status, to: t.status });
       }
-      emit('task', t.id, 'updated', { patch });
+      emit(LOCAL_USER_ID, 'task', t.id, 'updated', { patch });
     }
     return updated;
   },
@@ -261,7 +262,7 @@ export const taskService = {
   bulkDelete(db: Db, ids: string[]): { deleted: number } {
     if (ids.length === 0) throw new ValidationError('bulkDelete requires at least one id');
     const deleted = db.delete(tasks).where(inArray(tasks.id, ids)).returning().all();
-    for (const t of deleted) emit('task', t.id, 'deleted', {});
+    for (const t of deleted) emit(LOCAL_USER_ID, 'task', t.id, 'deleted', {});
     return { deleted: deleted.length };
   },
 };

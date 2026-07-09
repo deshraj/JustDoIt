@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { events, emit } from '@justdoit/core';
+import { events, emit, LOCAL_USER_ID } from '@justdoit/core';
 import { eventsRoutes } from './events';
 
 describe('GET /events (SSE)', () => {
@@ -13,7 +13,10 @@ describe('GET /events (SSE)', () => {
     const decoder = new TextDecoder();
 
     // Publish after the stream is open so the subscriber is attached.
-    setTimeout(() => emit('task', 't1', 'updated', { patch: { title: 'new' } }, 1), 10);
+    setTimeout(
+      () => emit(LOCAL_USER_ID, 'task', 't1', 'updated', { patch: { title: 'new' } }, 1),
+      10,
+    );
 
     let buf = '';
     while (!buf.includes('task.updated')) {

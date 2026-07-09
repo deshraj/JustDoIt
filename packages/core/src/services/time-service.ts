@@ -8,6 +8,7 @@ import type {
   UpdateEntryInput,
 } from '../schemas/time-entry-schema';
 import { emit } from '../events/emit';
+import { LOCAL_USER_ID } from '../constants';
 
 function requireTask(db: Db, taskId: string): void {
   const row = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, taskId)).get();
@@ -52,7 +53,7 @@ export const timeService = {
       })
       .returning()
       .all();
-    emit('time_entry', entry!.id, 'started', { taskId: entry!.taskId });
+    emit(LOCAL_USER_ID, 'time_entry', entry!.id, 'started', { taskId: entry!.taskId });
     return entry!;
   },
 
@@ -95,7 +96,7 @@ export const timeService = {
       .where(eq(timeEntries.id, entry.id))
       .returning()
       .all();
-    emit('time_entry', updated!.id, 'stopped', {
+    emit(LOCAL_USER_ID, 'time_entry', updated!.id, 'stopped', {
       taskId: updated!.taskId,
       durationSeconds: updated!.durationSeconds,
     });
@@ -133,7 +134,7 @@ export const timeService = {
       })
       .returning()
       .all();
-    emit('time_entry', entry!.id, 'logged', {
+    emit(LOCAL_USER_ID, 'time_entry', entry!.id, 'logged', {
       taskId: entry!.taskId,
       durationSeconds: entry!.durationSeconds,
     });

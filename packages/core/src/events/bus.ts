@@ -13,6 +13,7 @@ export type DomainEventAction =
 export interface DomainEvent {
   /** Dotted event name, e.g. 'task.updated' | 'project.created' | 'time.started'. */
   type: string;
+  userId: string;
   entityType: EntityType;
   entityId: string;
   action: DomainEventAction;

@@ -8,6 +8,7 @@ const PREFIX: Record<EntityType, string> = {
 
 /** Thin helper services call at the end of a mutation. Keeps call sites to one line. */
 export function emit(
+  userId: string,
   entityType: EntityType,
   entityId: string,
   action: DomainEventAction,
@@ -16,6 +17,7 @@ export function emit(
 ): void {
   events.publish({
     type: `${PREFIX[entityType]}.${action}`,
+    userId,
     entityType,
     entityId,
     action,
