@@ -70,6 +70,7 @@ export const tagService = {
     return db
       .select({
         id: tags.id,
+        userId: tags.userId,
         name: tags.name,
         color: tags.color,
         createdAt: tags.createdAt,

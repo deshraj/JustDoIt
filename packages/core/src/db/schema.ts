@@ -5,8 +5,10 @@ import {
   real,
   primaryKey,
   index,
+  unique,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
+import { LOCAL_USER_ID } from '../constants';
 
 export const TASK_STATUSES = [
   'backlog',
@@ -37,22 +39,67 @@ const updatedAt = () =>
     .notNull()
     .$defaultFn(() => new Date());
 
-export const projects = sqliteTable('projects', {
+export const users = sqliteTable('users', {
   id: pk(),
-  name: text('name').notNull(),
-  color: text('color'),
-  icon: text('icon'),
-  description: text('description'),
-  position: real('position').notNull().default(0),
-  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  githubId: text('github_id').unique(),
+  email: text('email'),
+  name: text('name'),
+  avatarUrl: text('avatar_url'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export const apiKeys = sqliteTable(
+  'api_keys',
+  {
+    id: pk(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    lastUsedAt: integer('last_used_at', { mode: 'timestamp_ms' }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('api_keys_user_idx').on(t.userId)],
+);
+
+/**
+ * Owner column for user-owned tables. The trailing `.$defaultFn` is TRANSITIONAL
+ * scaffolding: it keeps every pre-tenancy `(db, …)` insert compiling while
+ * services are converted to `(ctx, …)` one cluster at a time. Task 16 removes it
+ * so the type system forces explicit `userId: ctx.userId` stamping. The declared
+ * FK documents intent; the 0001 migration adds the physical column without the
+ * DB-level FK (SQLite ALTER limitation — see plan Global Constraints).
+ */
+const ownerId = () =>
+  text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' })
+    .$defaultFn(() => LOCAL_USER_ID);
+
+export const projects = sqliteTable(
+  'projects',
+  {
+    id: pk(),
+    userId: ownerId(),
+    name: text('name').notNull(),
+    color: text('color'),
+    icon: text('icon'),
+    description: text('description'),
+    position: real('position').notNull().default(0),
+    archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('projects_user_idx').on(t.userId)],
+);
 
 export const tasks = sqliteTable(
   'tasks',
   {
     id: pk(),
+    userId: ownerId(),
     title: text('title').notNull(),
     description: text('description'),
     status: text('status', { enum: TASK_STATUSES }).notNull().default('todo'),
@@ -75,16 +122,25 @@ export const tasks = sqliteTable(
     index('tasks_project_idx').on(t.projectId),
     index('tasks_status_idx').on(t.status),
     index('tasks_parent_idx').on(t.parentTaskId),
+    index('tasks_user_idx').on(t.userId),
   ],
 );
 
-export const tags = sqliteTable('tags', {
-  id: pk(),
-  name: text('name').notNull().unique(),
-  color: text('color'),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const tags = sqliteTable(
+  'tags',
+  {
+    id: pk(),
+    userId: ownerId(),
+    name: text('name').notNull(), // NOTE: `.unique()` removed — now composite below
+    color: text('color'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    unique('tags_user_id_name_unique').on(t.userId, t.name),
+    index('tags_user_idx').on(t.userId),
+  ],
+);
 
 export const taskTags = sqliteTable(
   'task_tags',
@@ -103,6 +159,7 @@ export const timeEntries = sqliteTable(
   'time_entries',
   {
     id: pk(),
+    userId: ownerId(),
     taskId: text('task_id')
       .notNull()
       .references(() => tasks.id, { onDelete: 'cascade' }),
@@ -114,13 +171,14 @@ export const timeEntries = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('time_entries_task_idx').on(t.taskId)],
+  (t) => [index('time_entries_task_idx').on(t.taskId), index('time_entries_user_idx').on(t.userId)],
 );
 
 export const reminders = sqliteTable(
   'reminders',
   {
     id: pk(),
+    userId: ownerId(),
     taskId: text('task_id')
       .notNull()
       .references(() => tasks.id, { onDelete: 'cascade' }),
@@ -129,26 +187,34 @@ export const reminders = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index('reminders_remind_at_idx').on(t.remindAt)],
+  (t) => [
+    index('reminders_remind_at_idx').on(t.remindAt),
+    index('reminders_user_idx').on(t.userId),
+  ],
 );
 
 export const activityLog = sqliteTable(
   'activity_log',
   {
     id: pk(),
+    userId: ownerId(),
     entityType: text('entity_type').notNull(),
     entityId: text('entity_id').notNull(),
     action: text('action').notNull(),
     payload: text('payload', { mode: 'json' }).$type<Record<string, unknown>>(),
     createdAt: createdAt(),
   },
-  (t) => [index('activity_entity_idx').on(t.entityType, t.entityId)],
+  (t) => [
+    index('activity_entity_idx').on(t.entityType, t.entityId),
+    index('activity_log_user_idx').on(t.userId),
+  ],
 );
 
 export const attachments = sqliteTable(
   'attachments',
   {
     id: pk(),
+    userId: ownerId(),
     taskId: text('task_id')
       .notNull()
       .references(() => tasks.id, { onDelete: 'cascade' }),
@@ -158,16 +224,21 @@ export const attachments = sqliteTable(
     size: integer('size'),
     createdAt: createdAt(),
   },
-  (t) => [index('attachments_task_idx').on(t.taskId)],
+  (t) => [index('attachments_task_idx').on(t.taskId), index('attachments_user_idx').on(t.userId)],
 );
 
-export const savedFilters = sqliteTable('saved_filters', {
-  id: pk(),
-  name: text('name').notNull(),
-  query: text('query', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const savedFilters = sqliteTable(
+  'saved_filters',
+  {
+    id: pk(),
+    userId: ownerId(),
+    name: text('name').notNull(),
+    query: text('query', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('saved_filters_user_idx').on(t.userId)],
+);
 
 export type Project = typeof projects.$inferSelect;
 export type NewProject = typeof projects.$inferInsert;
@@ -185,3 +256,7 @@ export type AttachmentRow = typeof attachments.$inferSelect;
 export type NewAttachmentRow = typeof attachments.$inferInsert;
 export type SavedFilterRow = typeof savedFilters.$inferSelect;
 export type NewSavedFilterRow = typeof savedFilters.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
