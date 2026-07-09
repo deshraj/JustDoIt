@@ -3,6 +3,7 @@ import { createDb, runMigrations, type Db } from '../db';
 import { parseQuickAdd, quickAddService } from './quick-add';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
+import { LOCAL_USER_ID } from '../constants';
 
 // Wed 2026-07-08 10:00 local
 const NOW = new Date(2026, 6, 8, 10, 0, 0, 0);
@@ -59,12 +60,14 @@ describe('quickAddService.create', () => {
     expect(task.title).toBe('buy milk');
     expect(task.priority).toBe('p1');
     expect(task.dueAt).toEqual(new Date(2026, 6, 9, 17, 0, 0, 0));
-    expect(projectService.get(db, task.projectId!).name).toBe('errands-list');
+    expect(projectService.get({ db, userId: LOCAL_USER_ID }, task.projectId!).name).toBe(
+      'errands-list',
+    );
     expect(tagService.listForTask(db, task.id).map((t) => t.name)).toEqual(['errands']);
   });
 
   it('reuses an existing project and tag by name', () => {
-    const proj = projectService.create(db, { name: 'work' });
+    const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'work' });
     const tag = tagService.create(db, { name: 'writing' });
     const task = quickAddService.create(db, 'draft @work #writing', NOW);
     expect(task.projectId).toBe(proj.id);

@@ -5,6 +5,7 @@ import { taskService } from './task-service';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
 import { ValidationError } from '../errors';
+import { LOCAL_USER_ID } from '../constants';
 
 function freshDb(): Db {
   const { db } = createDb(':memory:');
@@ -13,7 +14,7 @@ function freshDb(): Db {
 }
 
 function seed(db: Db): void {
-  const proj = projectService.create(db, { name: 'Work' });
+  const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'Work' });
   const parent = taskService.create(db, { title: 'parent', projectId: proj.id });
   taskService.addSubtask(db, parent.id, { title: 'child' });
   const tag = tagService.create(db, { name: 'focus' });
@@ -57,9 +58,11 @@ describe('exportService', () => {
     seed(db);
     const snap = exportService.exportSnapshot(db);
     const target = freshDb();
-    projectService.create(target, { name: 'stale' });
+    projectService.create({ db: target, userId: LOCAL_USER_ID }, { name: 'stale' });
     exportService.importSnapshot(target, snap);
-    expect(projectService.list(target).map((p) => p.name)).toEqual(['Work']);
+    expect(
+      projectService.list({ db: target, userId: LOCAL_USER_ID }).map((p) => p.name),
+    ).toEqual(['Work']);
   });
 
   it('rejects a malformed snapshot', () => {

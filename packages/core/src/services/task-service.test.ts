@@ -4,6 +4,7 @@ import { taskService } from './task-service';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
 import { NotFoundError, ConflictError, ValidationError } from '../errors';
+import { LOCAL_USER_ID } from '../constants';
 
 function freshDb(): Db {
   const { db } = createDb(':memory:');
@@ -64,7 +65,7 @@ describe('taskService', () => {
   });
 
   it('filters by status, project, priority, archived, parentTaskId', () => {
-    const proj = projectService.create(db, { name: 'P' });
+    const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'P' });
     taskService.create(db, { title: 'a', projectId: proj.id, priority: 'p1' });
     const b = taskService.create(db, { title: 'b', status: 'in_progress' });
     taskService.update(db, b.id, { archived: true });

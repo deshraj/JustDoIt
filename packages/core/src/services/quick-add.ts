@@ -5,6 +5,7 @@ import { ValidationError } from '../errors';
 import { projectService } from './project-service';
 import { tagService } from './tag-service';
 import { taskService } from './task-service';
+import { LOCAL_USER_ID } from '../constants';
 
 export interface QuickAddParsed {
   title: string;
@@ -129,7 +130,7 @@ export const quickAddService = {
         .get();
       projectId = existing
         ? existing.id
-        : projectService.create(db, { name: parsed.projectName }).id;
+        : projectService.create({ db, userId: LOCAL_USER_ID }, { name: parsed.projectName }).id;
     }
 
     const task = taskService.create(db, {

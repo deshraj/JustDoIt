@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { startActivityLog, type Db } from '@justdoit/core';
 import { errorHandler } from './middleware/error';
 import { apiKeyAuth } from './middleware/auth';
+import { setUserContext, type AppEnv } from './context';
 import { healthRoutes } from './routes/health';
 import { projectRoutes } from './routes/projects';
 import { tagRoutes } from './routes/tags';
@@ -44,12 +45,12 @@ function resolveCorsOrigin(opts: CreateAppOptions): string | string[] {
   return DEFAULT_CORS_ORIGINS;
 }
 
-export function createApp(db: Db, opts: CreateAppOptions = {}): Hono {
+export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   // Attach the activity-log subscriber once per app instance so every
   // mutation made through this app's db is persisted to the audit trail.
   startActivityLog(db);
 
-  const app = new Hono();
+  const app = new Hono<AppEnv>();
   app.onError(errorHandler);
   // apps/web is a browser client on a different origin/port (Next dev on
   // :3000 vs this API on :8787) — without CORS every request fails at the
@@ -66,6 +67,7 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono {
     }),
   );
   app.use('*', apiKeyAuth(opts.apiKey ?? process.env.JUSTDOIT_API_KEY));
+  app.use('*', setUserContext(db));
   app.route('/', healthRoutes());
   app.route('/projects', projectRoutes(db));
   app.route('/tags', tagRoutes(db));

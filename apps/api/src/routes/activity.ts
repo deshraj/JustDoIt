@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { activityService, ValidationError, LOCAL_USER_ID, type Db } from '@justdoit/core';
+import { activityService, ValidationError, type Db } from '@justdoit/core';
+import type { AppEnv } from '../context';
 
 const ENTITY_TYPES = ['task', 'project', 'time_entry'] as const;
 
@@ -25,15 +26,13 @@ const querySchema = z
     return { entityType: q.entityType, entityId: q.entityId, limit: q.limit };
   });
 
-export function activityRoutes(db: Db): Hono {
-  const r = new Hono();
+export function activityRoutes(db: Db): Hono<AppEnv> {
+  const r = new Hono<AppEnv>();
 
   r.get('/activity', (c) => {
     const parsed = querySchema.safeParse(c.req.query());
     if (!parsed.success) throw new ValidationError(parsed.error.issues[0]!.message);
-    // interim, until Task 4 registers the setUserContext middleware:
-    const ctx = { db, userId: LOCAL_USER_ID };
-    return c.json({ activity: activityService.list(ctx, parsed.data) });
+    return c.json({ activity: activityService.list(c.var.ctx, parsed.data) });
   });
 
   return r;

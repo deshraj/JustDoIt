@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { projectService, tagService, taskService, type Db } from '@justdoit/core';
+import { LOCAL_USER_ID, projectService, tagService, taskService, type Ctx, type Db } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 export function registerProjectTools(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+
   server.registerTool(
     'create_project',
     {
@@ -16,7 +18,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
         description: z.string().optional(),
       },
     },
-    (args) => guard(() => projectService.create(db, args)),
+    (args) => guard(() => projectService.create(ctx, args)),
   );
 
   server.registerTool(
@@ -30,7 +32,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
     // only archived, false => only active, undefined => both), so "include archived"
     // maps to "no filter" rather than "archived: true".
     ({ includeArchived }) =>
-      guard(() => projectService.list(db, includeArchived ? {} : { archived: false })),
+      guard(() => projectService.list(ctx, includeArchived ? {} : { archived: false })),
   );
 
   server.registerTool(
