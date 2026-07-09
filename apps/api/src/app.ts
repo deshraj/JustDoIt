@@ -5,8 +5,8 @@ import { errorHandler } from './middleware/error';
 import { resolveUser } from './middleware/auth';
 import type { AppEnv } from './context';
 import { healthRoutes } from './routes/health';
-// import { internalRoutes } from './routes/internal'; // Task 2
-// import { apiKeyRoutes } from './routes/api-keys'; // Task 2
+import { internalRoutes } from './routes/internal';
+import { apiKeyRoutes } from './routes/api-keys';
 import { projectRoutes } from './routes/projects';
 import { tagRoutes } from './routes/tags';
 import { taskRoutes } from './routes/tasks';
@@ -75,8 +75,8 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   // Public (no identity): health check for the platform load balancer.
   app.route('/', healthRoutes());
   // Server-to-server only (its own X-Internal-Key guard) — registered BEFORE
-  // resolveUser so it isn't subject to the X-User-Id requirement. (Task 2)
-  // app.route('/internal', internalRoutes(db, { internalSecret: opts.internalSecret }));
+  // resolveUser so it isn't subject to the X-User-Id requirement.
+  app.route('/internal', internalRoutes(db, { internalSecret: opts.internalSecret }));
 
   // Everything past here needs a resolved user.
   app.use('*', resolveUser(db, { internalSecret: opts.internalSecret, mode: opts.mode }));
@@ -94,7 +94,7 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   app.route('/', activityRoutes());
   app.route('/', eventsRoutes());
   app.route('/', savedFilterRoutes());
-  // app.route('/api-keys', apiKeyRoutes()); // Task 2
+  app.route('/api-keys', apiKeyRoutes());
   const filesDir = opts.filesDir ?? process.env.JUSTDOIT_FILES_DIR ?? './data/files';
   app.route('/', attachmentRoutes(db, filesDir));
   return app;
