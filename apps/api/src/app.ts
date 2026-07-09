@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { startActivityLog, userService, type Db } from '@justdoit/core';
 import { errorHandler } from './middleware/error';
-import { apiKeyAuth } from './middleware/auth';
-import { setUserContext, type AppEnv } from './context';
+import { resolveUser } from './middleware/auth';
+import type { AppEnv } from './context';
 import { healthRoutes } from './routes/health';
+// import { internalRoutes } from './routes/internal'; // Task 2
+// import { apiKeyRoutes } from './routes/api-keys'; // Task 2
 import { projectRoutes } from './routes/projects';
 import { tagRoutes } from './routes/tags';
 import { taskRoutes } from './routes/tasks';
@@ -23,11 +25,10 @@ import { attachmentRoutes } from './routes/attachments';
 export interface CreateAppOptions {
   /** Attachment storage dir; defaults to JUSTDOIT_FILES_DIR or ./data/files. */
   filesDir?: string;
-  /**
-   * When set, every request must carry a matching `X-API-Key` header.
-   * Defaults to `JUSTDOIT_API_KEY`. Unset ⇒ open (localhost dev UX).
-   */
-  apiKey?: string;
+  /** Shared secret for the trusted web proxy (`X-Internal-Key`). Defaults to `INTERNAL_API_SECRET`. */
+  internalSecret?: string;
+  /** `local` (default) or `hosted`. Defaults to `JUSTDOIT_MODE`. */
+  mode?: 'local' | 'hosted';
   /**
    * Allowed CORS origin(s). Defaults to `JUSTDOIT_CORS_ORIGIN` (comma-list)
    * or the local web + API dev origins. Never `*` (a matching key would be
@@ -60,19 +61,26 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   // :3000 vs this API on :8787) — without CORS every request fails at the
   // browser's preflight, even though curl/Playwright-server-to-server calls
   // work fine. Scoped to the local dev origins (never `*`) so a configured
-  // API key stays meaningful. Registered before `apiKeyAuth` so CORS
-  // preflight (OPTIONS) is answered without needing the key header.
+  // API key stays meaningful. Registered before `resolveUser` so CORS
+  // preflight (OPTIONS) is answered without needing an identity header.
   app.use(
     '*',
     cors({
       origin: resolveCorsOrigin(opts),
-      allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'X-API-Key'],
+      allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'X-API-Key', 'X-Internal-Key', 'X-User-Id'],
     }),
   );
-  app.use('*', apiKeyAuth(opts.apiKey ?? process.env.JUSTDOIT_API_KEY));
-  app.use('*', setUserContext(db));
+
+  // Public (no identity): health check for the platform load balancer.
   app.route('/', healthRoutes());
+  // Server-to-server only (its own X-Internal-Key guard) — registered BEFORE
+  // resolveUser so it isn't subject to the X-User-Id requirement. (Task 2)
+  // app.route('/internal', internalRoutes(db, { internalSecret: opts.internalSecret }));
+
+  // Everything past here needs a resolved user.
+  app.use('*', resolveUser(db, { internalSecret: opts.internalSecret, mode: opts.mode }));
+
   app.route('/projects', projectRoutes());
   app.route('/tags', tagRoutes());
   app.route('/tasks', taskRoutes());
@@ -86,6 +94,7 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   app.route('/', activityRoutes());
   app.route('/', eventsRoutes());
   app.route('/', savedFilterRoutes());
+  // app.route('/api-keys', apiKeyRoutes()); // Task 2
   const filesDir = opts.filesDir ?? process.env.JUSTDOIT_FILES_DIR ?? './data/files';
   app.route('/', attachmentRoutes(db, filesDir));
   return app;
