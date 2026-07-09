@@ -20,6 +20,12 @@ RUN pnpm install --frozen-lockfile
 ########## build (next build → .next/standalone) ##########
 FROM base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time. Railway
+# passes service variables as build args, so accept it as an ARG and expose it
+# to `next build`. In hosted mode this is `/api/backend` (the same-origin proxy);
+# unset → the code falls back to http://localhost:8787 for local dev.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/core/node_modules ./packages/core/node_modules
