@@ -33,12 +33,12 @@ _A quick tour, with demo data._
 
 ![Kanban board](docs/screenshots/board.png)
 
-| Calendar | Analytics dashboard |
-| --- | --- |
+| Calendar                                        | Analytics dashboard                                    |
+| ----------------------------------------------- | ------------------------------------------------------ |
 | ![Calendar view](docs/screenshots/calendar.png) | ![Analytics dashboard](docs/screenshots/analytics.png) |
 
-| Task detail | Command palette (⌘K) |
-| --- | --- |
+| Task detail                                      | Command palette (⌘K)                                     |
+| ------------------------------------------------ | -------------------------------------------------------- |
 | ![Task detail](docs/screenshots/task-detail.png) | ![Command palette](docs/screenshots/command-palette.png) |
 
 ---
@@ -62,12 +62,12 @@ One core, three thin adapters. All business logic and validation lives in `packa
                                                                           justdoit.db (SQLite)
 ```
 
-| Package | What it is |
-| --- | --- |
-| `packages/core` | Domain logic, Drizzle ORM schema + migrations, SQLite access, Zod schemas. All business rules. |
-| `apps/api` | [Hono](https://hono.dev) HTTP server exposing the REST API. Thin adapter over core. |
-| `apps/mcp` | MCP server ([`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol)) — imports core in-process (works even when the API/UI is down). stdio + streamable-HTTP transports. |
-| `apps/web` | [Next.js 15](https://nextjs.org) App Router UI. A pure client of the REST API. |
+| Package         | What it is                                                                                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/core` | Domain logic, Drizzle ORM schema + migrations, SQLite access, Zod schemas. All business rules.                                                                                          |
+| `apps/api`      | [Hono](https://hono.dev) HTTP server exposing the REST API. Thin adapter over core.                                                                                                     |
+| `apps/mcp`      | MCP server ([`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol)) — imports core in-process (works even when the API/UI is down). stdio + streamable-HTTP transports. |
+| `apps/web`      | [Next.js 15](https://nextjs.org) App Router UI. A pure client of the REST API.                                                                                                          |
 
 **Stack:** TypeScript · pnpm workspaces + Turborepo · SQLite (`better-sqlite3`) + Drizzle ORM · Zod · Hono · Next.js 15 + Tailwind + shadcn/ui + TanStack Query · Vitest + Playwright.
 
@@ -105,11 +105,13 @@ pnpm --filter @justdoit/web dev
 Your data lands in `justdoit.db` in the repo root by default (override with `JUSTDOIT_DB`). Back it up by copying that file.
 
 > **Try it:** create your first task from the command line —
+>
 > ```bash
 > curl -X POST http://localhost:8787/quick-add \
 >   -H 'Content-Type: application/json' \
 >   -d '{"text":"Ship JustDoIt v1 friday 5pm #launch p1"}'
 > ```
+>
 > …then refresh the web UI.
 
 ---
@@ -132,20 +134,20 @@ Open http://localhost:3000. It's built to stay out of your way:
 
 Base URL: `http://localhost:8787`. Everything is JSON. A few of the endpoints:
 
-| Method & path | Purpose |
-| --- | --- |
-| `GET/POST /tasks`, `GET/PATCH/DELETE /tasks/:id` | Task CRUD |
-| `PATCH /tasks/:id/status`, `POST /tasks/:id/complete` | Move through the lifecycle |
-| `GET/POST /tasks/:id/subtasks` | Subtasks |
-| `POST /tasks/:id/timer/start` · `/stop` | Timers |
-| `GET/POST /time-entries`, `PATCH/DELETE /time-entries/:id` | Manual time entries |
-| `GET /reports/time?group_by=day\|project\|tag&from=&to=` | Time reports |
-| `GET/POST /projects`, `GET/POST /tags` | Projects & tags |
-| `GET/POST /reminders` | Reminders |
-| `GET /search?q=` | Full-text search |
-| `POST /quick-add` | Natural-language task creation |
-| `GET /export` · `POST /import` | JSON backup / restore |
-| `GET /events` | Server-Sent Events stream |
+| Method & path                                              | Purpose                        |
+| ---------------------------------------------------------- | ------------------------------ |
+| `GET/POST /tasks`, `GET/PATCH/DELETE /tasks/:id`           | Task CRUD                      |
+| `PATCH /tasks/:id/status`, `POST /tasks/:id/complete`      | Move through the lifecycle     |
+| `GET/POST /tasks/:id/subtasks`                             | Subtasks                       |
+| `POST /tasks/:id/timer/start` · `/stop`                    | Timers                         |
+| `GET/POST /time-entries`, `PATCH/DELETE /time-entries/:id` | Manual time entries            |
+| `GET /reports/time?group_by=day\|project\|tag&from=&to=`   | Time reports                   |
+| `GET/POST /projects`, `GET/POST /tags`                     | Projects & tags                |
+| `GET/POST /reminders`                                      | Reminders                      |
+| `GET /search?q=`                                           | Full-text search               |
+| `POST /quick-add`                                          | Natural-language task creation |
+| `GET /export` · `POST /import`                             | JSON backup / restore          |
+| `GET /events`                                              | Server-Sent Events stream      |
 
 Task-list filters are snake_case query params, e.g. `GET /tasks?status=todo&project_id=<id>&due=today`.
 
@@ -186,17 +188,17 @@ pnpm --filter @justdoit/mcp start:http   # honors JUSTDOIT_MCP_PORT and JUSTDOIT
 
 All configuration is via environment variables.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `JUSTDOIT_DB` | `justdoit.db` | Path to the SQLite database file (use `:memory:` for a throwaway DB). |
-| `JUSTDOIT_API_PORT` | `8787` | Port for the REST API. |
-| `JUSTDOIT_API_HOST` | `127.0.0.1` | Host the REST API binds to. |
-| `JUSTDOIT_API_KEY` | _(unset)_ | If set, the REST API and MCP HTTP transport require a matching `X-API-Key` header. Unset = open (localhost dev). |
-| `JUSTDOIT_CORS_ORIGIN` | `http://localhost:3000,http://localhost:8787` | Allowed CORS origins for the API. |
-| `JUSTDOIT_FILES_DIR` | `./data/files` | Where task attachments are stored. |
-| `JUSTDOIT_DISABLE_SCHEDULER` | _(unset)_ | Set to `1` to disable the reminder scheduler / desktop notifications. |
-| `JUSTDOIT_MCP_PORT` | `8788` | Port for the MCP streamable-HTTP transport. |
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8787` | Web UI → REST API base URL. |
+| Variable                     | Default                                       | Description                                                                                                      |
+| ---------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `JUSTDOIT_DB`                | `justdoit.db`                                 | Path to the SQLite database file (use `:memory:` for a throwaway DB).                                            |
+| `JUSTDOIT_API_PORT`          | `8787`                                        | Port for the REST API.                                                                                           |
+| `JUSTDOIT_API_HOST`          | `127.0.0.1`                                   | Host the REST API binds to.                                                                                      |
+| `JUSTDOIT_API_KEY`           | _(unset)_                                     | If set, the REST API and MCP HTTP transport require a matching `X-API-Key` header. Unset = open (localhost dev). |
+| `JUSTDOIT_CORS_ORIGIN`       | `http://localhost:3000,http://localhost:8787` | Allowed CORS origins for the API.                                                                                |
+| `JUSTDOIT_FILES_DIR`         | `./data/files`                                | Where task attachments are stored.                                                                               |
+| `JUSTDOIT_DISABLE_SCHEDULER` | _(unset)_                                     | Set to `1` to disable the reminder scheduler / desktop notifications.                                            |
+| `JUSTDOIT_MCP_PORT`          | `8788`                                        | Port for the MCP streamable-HTTP transport.                                                                      |
+| `NEXT_PUBLIC_API_URL`        | `http://localhost:8787`                       | Web UI → REST API base URL.                                                                                      |
 
 ---
 
