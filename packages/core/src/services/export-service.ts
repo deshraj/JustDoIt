@@ -1,4 +1,4 @@
-import type { Db } from '../db';
+import { eq, inArray } from 'drizzle-orm';
 import {
   projects,
   tasks,
@@ -15,6 +15,8 @@ import {
   type TimeEntry,
 } from '../db/schema';
 import { ValidationError } from '../errors';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 
 export interface Snapshot {
   version: 1;
@@ -58,23 +60,39 @@ const REQUIRED_ARRAYS = [
 ] as const;
 
 export const exportService = {
-  exportSnapshot(db: Db): Snapshot {
+  /** Export only `ctx.userId`'s rows. */
+  exportSnapshot(ctx: Ctx): Snapshot {
     return {
       version: 1,
       exportedAt: new Date().toISOString(),
-      projects: db.select().from(projects).all(),
-      tasks: db.select().from(tasks).all(),
-      tags: db.select().from(tags).all(),
-      taskTags: db.select().from(taskTags).all(),
-      timeEntries: db.select().from(timeEntries).all(),
-      reminders: db.select().from(reminders).all(),
-      activityLog: db.select().from(activityLog).all(),
-      attachments: db.select().from(attachments).all(),
-      savedFilters: db.select().from(savedFilters).all(),
+      projects: ctx.db.select().from(projects).where(userScope(projects, ctx.userId)).all(),
+      tasks: ctx.db.select().from(tasks).where(userScope(tasks, ctx.userId)).all(),
+      tags: ctx.db.select().from(tags).where(userScope(tags, ctx.userId)).all(),
+      // taskTags has no user_id — scope via an inner join on the user's own tasks.
+      taskTags: ctx.db
+        .select({ taskId: taskTags.taskId, tagId: taskTags.tagId })
+        .from(taskTags)
+        .innerJoin(tasks, eq(taskTags.taskId, tasks.id))
+        .where(userScope(tasks, ctx.userId))
+        .all(),
+      timeEntries: ctx.db.select().from(timeEntries).where(userScope(timeEntries, ctx.userId)).all(),
+      reminders: ctx.db.select().from(reminders).where(userScope(reminders, ctx.userId)).all(),
+      activityLog: ctx.db.select().from(activityLog).where(userScope(activityLog, ctx.userId)).all(),
+      attachments: ctx.db.select().from(attachments).where(userScope(attachments, ctx.userId)).all(),
+      savedFilters: ctx.db
+        .select()
+        .from(savedFilters)
+        .where(userScope(savedFilters, ctx.userId))
+        .all(),
     };
   },
 
-  importSnapshot(db: Db, snapshot: Snapshot): ImportResult {
+  /**
+   * Replace only `ctx.userId`'s rows. Every inserted row is re-stamped with
+   * `ctx.userId` (any `userId` present in the snapshot — e.g. a hand-forged
+   * import — is ignored), so importing as A can never write into B's data.
+   */
+  importSnapshot(ctx: Ctx, snapshot: Snapshot): ImportResult {
     if (!snapshot || typeof snapshot !== 'object') {
       throw new ValidationError('Snapshot must be an object');
     }
@@ -88,9 +106,9 @@ export const exportService = {
     }
 
     // Coerce timestamp fields (which arrive as ISO strings or ms after JSON) back to Date
-    // for Drizzle's timestamp_ms columns.
+    // for Drizzle's timestamp_ms columns, and re-stamp userId to the acting user.
     const toDate = <T extends Record<string, unknown>>(row: T, keys: string[]): T => {
-      const copy: Record<string, unknown> = { ...row };
+      const copy: Record<string, unknown> = { ...row, userId: ctx.userId };
       for (const k of keys) {
         const v = copy[k];
         if (v !== null && v !== undefined && !(v instanceof Date)) {
@@ -100,17 +118,26 @@ export const exportService = {
       return copy as T;
     };
 
-    db.transaction((tx) => {
-      // Delete children first (FK-safe).
-      tx.delete(taskTags).run();
-      tx.delete(timeEntries).run();
-      tx.delete(reminders).run();
-      tx.delete(attachments).run();
-      tx.delete(activityLog).run();
-      tx.delete(savedFilters).run();
-      tx.delete(tasks).run();
-      tx.delete(projects).run();
-      tx.delete(tags).run();
+    const ownedTaskIds = ctx.db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(userScope(tasks, ctx.userId))
+      .all()
+      .map((r) => r.id);
+
+    ctx.db.transaction((tx) => {
+      // Delete children first (FK-safe), scoped to the acting user only.
+      if (ownedTaskIds.length) {
+        tx.delete(taskTags).where(inArray(taskTags.taskId, ownedTaskIds)).run();
+      }
+      tx.delete(timeEntries).where(userScope(timeEntries, ctx.userId)).run();
+      tx.delete(reminders).where(userScope(reminders, ctx.userId)).run();
+      tx.delete(attachments).where(userScope(attachments, ctx.userId)).run();
+      tx.delete(activityLog).where(userScope(activityLog, ctx.userId)).run();
+      tx.delete(savedFilters).where(userScope(savedFilters, ctx.userId)).run();
+      tx.delete(tasks).where(userScope(tasks, ctx.userId)).run();
+      tx.delete(projects).where(userScope(projects, ctx.userId)).run();
+      tx.delete(tags).where(userScope(tags, ctx.userId)).run();
 
       if (snapshot.projects.length) {
         tx.insert(projects)
