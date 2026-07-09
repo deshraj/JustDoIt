@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { Hono } from 'hono';
 import { attachmentService, ValidationError, type Db } from '@justdoit/core';
+import type { AppEnv } from '../context';
 
 /**
  * Build a header-safe `Content-Disposition` value. A raw filename can contain
@@ -15,8 +16,8 @@ function contentDisposition(filename: string | null | undefined): string {
   return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
 }
 
-export function attachmentRoutes(db: Db, filesDir: string): Hono {
-  const r = new Hono();
+export function attachmentRoutes(db: Db, filesDir: string): Hono<AppEnv> {
+  const r = new Hono<AppEnv>();
 
   r.post('/tasks/:id/attachments', async (c) => {
     const body = await c.req.parseBody();
@@ -26,7 +27,7 @@ export function attachmentRoutes(db: Db, filesDir: string): Hono {
     }
     const data = new Uint8Array(await file.arrayBuffer());
     const attachment = await attachmentService.add(
-      db,
+      c.var.ctx,
       {
         taskId: c.req.param('id'),
         filename: file.name,
@@ -39,11 +40,13 @@ export function attachmentRoutes(db: Db, filesDir: string): Hono {
   });
 
   r.get('/tasks/:id/attachments', (c) =>
-    c.json({ attachments: attachmentService.list(db, c.req.param('id')) }),
+    c.json({ attachments: attachmentService.list(c.var.ctx, c.req.param('id')) }),
   );
 
   r.get('/attachments/:id', async (c) => {
-    const { record, absolutePath } = attachmentService.get(db, c.req.param('id'), { filesDir });
+    const { record, absolutePath } = attachmentService.get(c.var.ctx, c.req.param('id'), {
+      filesDir,
+    });
     const bytes = await readFile(absolutePath);
     c.header('Content-Type', record.mime ?? 'application/octet-stream');
     c.header('Content-Disposition', contentDisposition(record.filename));
@@ -51,7 +54,7 @@ export function attachmentRoutes(db: Db, filesDir: string): Hono {
   });
 
   r.delete('/attachments/:id', async (c) => {
-    await attachmentService.remove(db, c.req.param('id'), { filesDir });
+    await attachmentService.remove(c.var.ctx, c.req.param('id'), { filesDir });
     return c.body(null, 204);
   });
 

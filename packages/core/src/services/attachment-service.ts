@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { extname, isAbsolute, join, resolve } from 'node:path';
-import { eq } from 'drizzle-orm';
-import type { Db } from '../db';
+import { and, eq } from 'drizzle-orm';
 import { attachments, tasks, type AttachmentRow } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 
 export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB
 
@@ -37,9 +38,18 @@ function sanitize(filename: string): string {
   return filename.replace(/[/\\]/g, '_').slice(0, 200) || 'file';
 }
 
+function requireOwnedTask(ctx: Ctx, taskId: string): void {
+  const row = ctx.db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), userScope(tasks, ctx.userId)))
+    .get();
+  if (!row) throw new NotFoundError('Task', taskId);
+}
+
 export const attachmentService = {
   async add(
-    db: Db,
+    ctx: Ctx,
     input: AddAttachmentInput,
     opts: { filesDir?: string } = {},
   ): Promise<AttachmentRecord> {
@@ -50,8 +60,7 @@ export const attachmentService = {
     if (!ALLOWED_ATTACHMENT_MIME.has(input.mime)) {
       throw new ValidationError(`Unsupported file type: ${input.mime}`);
     }
-    const task = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, input.taskId)).get();
-    if (!task) throw new NotFoundError('Task', input.taskId);
+    requireOwnedTask(ctx, input.taskId);
 
     const safeName = sanitize(input.filename);
     const storedName = `${randomUUID()}${extname(safeName)}`;
@@ -60,9 +69,10 @@ export const attachmentService = {
     await fs.mkdir(join(filesDir, input.taskId), { recursive: true });
     await fs.writeFile(absPath, input.data);
 
-    const [row] = db
+    const [row] = ctx.db
       .insert(attachments)
       .values({
+        userId: ctx.userId,
         taskId: input.taskId,
         filename: safeName,
         path: relPath,
@@ -74,26 +84,37 @@ export const attachmentService = {
     return row!;
   },
 
-  list(db: Db, taskId: string): AttachmentRecord[] {
-    return db.select().from(attachments).where(eq(attachments.taskId, taskId)).all();
+  list(ctx: Ctx, taskId: string): AttachmentRecord[] {
+    return ctx.db
+      .select()
+      .from(attachments)
+      .where(and(userScope(attachments, ctx.userId), eq(attachments.taskId, taskId)))
+      .all();
   },
 
   /** Resolve a stored row to its bytes' location on disk. */
   get(
-    db: Db,
+    ctx: Ctx,
     id: string,
     opts: { filesDir?: string } = {},
   ): { record: AttachmentRecord; absolutePath: string } {
     const filesDir = opts.filesDir ?? DEFAULT_FILES_DIR;
-    const record = db.select().from(attachments).where(eq(attachments.id, id)).get();
+    const record = ctx.db
+      .select()
+      .from(attachments)
+      .where(and(eq(attachments.id, id), userScope(attachments, ctx.userId)))
+      .get();
     if (!record) throw new NotFoundError('Attachment', id);
     const absolutePath = isAbsolute(record.path) ? record.path : resolve(filesDir, record.path);
     return { record, absolutePath };
   },
 
-  async remove(db: Db, id: string, opts: { filesDir?: string } = {}): Promise<void> {
-    const { record, absolutePath } = attachmentService.get(db, id, opts);
+  async remove(ctx: Ctx, id: string, opts: { filesDir?: string } = {}): Promise<void> {
+    const { record, absolutePath } = attachmentService.get(ctx, id, opts);
     await fs.rm(absolutePath, { force: true });
-    db.delete(attachments).where(eq(attachments.id, record.id)).run();
+    ctx.db
+      .delete(attachments)
+      .where(and(eq(attachments.id, record.id), userScope(attachments, ctx.userId)))
+      .run();
   },
 };
