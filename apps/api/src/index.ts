@@ -9,7 +9,9 @@ runMigrations(db);
 
 const filesDir = process.env.JUSTDOIT_FILES_DIR ?? './data/files';
 const app = createApp(db, { filesDir });
-const port = Number(process.env.JUSTDOIT_API_PORT ?? 8787);
+// Prefer the platform-injected PORT (Railway/most PaaS route the domain to it);
+// fall back to JUSTDOIT_API_PORT for local dev, then the default.
+const port = Number(process.env.PORT ?? process.env.JUSTDOIT_API_PORT ?? 8787);
 // Bind to loopback by default so a local-first tool isn't exposed on the LAN.
 const host = process.env.JUSTDOIT_API_HOST ?? '127.0.0.1';
 
