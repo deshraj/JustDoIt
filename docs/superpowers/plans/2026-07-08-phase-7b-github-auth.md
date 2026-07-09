@@ -28,8 +28,8 @@ This plan builds directly on the 7a end-state. Treat the following as **already 
 ## Global Constraints
 
 - **Auth-resolution order is the single source of truth** (see §6 of the spec). Implement it exactly, in this order:
-  1. Valid `X-Internal-Key` (`=== INTERNAL_API_SECRET`) ⇒ trust `X-User-Id` header. *(web proxy)*
-  2. Else present `X-API-Key` ⇒ `apiKeyService.resolveToken(db, key)` ⇒ `userId` (null ⇒ `401`). *(agents/MCP/scripts)*
+  1. Valid `X-Internal-Key` (`=== INTERNAL_API_SECRET`) ⇒ trust `X-User-Id` header. _(web proxy)_
+  2. Else present `X-API-Key` ⇒ `apiKeyService.resolveToken(db, key)` ⇒ `userId` (null ⇒ `401`). _(agents/MCP/scripts)_
   3. Else `JUSTDOIT_MODE=local` (default when unset) ⇒ `local-user`.
   4. Else ⇒ `401`.
 - **Zero-login local dev is non-negotiable.** With no `AUTH_GITHUB_ID` (and `JUSTDOIT_MODE` unset/`local`): web middleware is a no-op, the proxy stamps `local-user`, and the API resolves `local-user`. No sign-in screen ever appears locally.
@@ -156,7 +156,10 @@ describe('resolveUser', () => {
   it('path 2: valid X-API-Key resolves to its owner', async () => {
     const { db, app } = harness('hosted');
     const user = userService.upsertByGithubId(db, {
-      githubId: 'gh1', email: 'a@x.dev', name: 'A', avatarUrl: null,
+      githubId: 'gh1',
+      email: 'a@x.dev',
+      name: 'A',
+      avatarUrl: null,
     });
     const { token } = apiKeyService.create(db, user.id, 'cli');
     const res = await app.request('/whoami', { headers: { 'X-API-Key': token } });
@@ -356,7 +359,10 @@ function setup() {
   runMigrations(db);
   const app = createApp(db, { mode: 'hosted', internalSecret: SECRET });
   const user = userService.upsertByGithubId(db, {
-    githubId: 'gh1', email: 'a@x.dev', name: 'A', avatarUrl: null,
+    githubId: 'gh1',
+    email: 'a@x.dev',
+    name: 'A',
+    avatarUrl: null,
   });
   const asUser = (path: string, init: RequestInit = {}) =>
     app.request(path, {
@@ -659,7 +665,11 @@ export function isAllowed(
 
 const PUBLIC_PREFIXES = ['/signin', '/not-allowed', '/api/auth'];
 
-export function shouldRedirect(pathname: string, hasSession: boolean, authEnabled: boolean): boolean {
+export function shouldRedirect(
+  pathname: string,
+  hasSession: boolean,
+  authEnabled: boolean,
+): boolean {
   if (!authEnabled || hasSession) return false;
   return !PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
@@ -710,13 +720,17 @@ import { upsertUser } from './auth-callbacks';
 
 describe('upsertUser', () => {
   it('POSTs to the internal endpoint with the shared secret and returns id', async () => {
-    const fetchFn = vi.fn(async () =>
-      new Response(JSON.stringify({ id: 'user-123' }), { status: 200 }),
+    const fetchFn = vi.fn(
+      async () => new Response(JSON.stringify({ id: 'user-123' }), { status: 200 }),
     );
-    const id = await upsertUser(fetchFn as unknown as typeof fetch, {
-      base: 'http://api.internal',
-      secret: 's3cret',
-    }, { githubId: '42', email: 'a@x.dev', name: 'A', avatarUrl: null });
+    const id = await upsertUser(
+      fetchFn as unknown as typeof fetch,
+      {
+        base: 'http://api.internal',
+        secret: 's3cret',
+      },
+      { githubId: '42', email: 'a@x.dev', name: 'A', avatarUrl: null },
+    );
 
     expect(id).toBe('user-123');
     const [url, init] = fetchFn.mock.calls[0]!;
@@ -728,9 +742,16 @@ describe('upsertUser', () => {
   it('throws on a non-OK upstream response', async () => {
     const fetchFn = vi.fn(async () => new Response('nope', { status: 500 }));
     await expect(
-      upsertUser(fetchFn as unknown as typeof fetch, { base: 'http://api', secret: 's' }, {
-        githubId: '1', email: null, name: null, avatarUrl: null,
-      }),
+      upsertUser(
+        fetchFn as unknown as typeof fetch,
+        { base: 'http://api', secret: 's' },
+        {
+          githubId: '1',
+          email: null,
+          name: null,
+          avatarUrl: null,
+        },
+      ),
     ).rejects.toThrow(/500/);
   });
 });
@@ -798,12 +819,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const base = process.env.INTERNAL_API_URL;
         const secret = process.env.INTERNAL_API_SECRET;
         if (!base || !secret) throw new Error('INTERNAL_API_URL/INTERNAL_API_SECRET missing');
-        token.userId = await upsertUser(fetch, { base, secret }, {
-          githubId: String(profile.id),
-          email: (profile.email as string | null) ?? null,
-          name: (profile.name as string | null) ?? null,
-          avatarUrl: (profile.avatar_url as string | null) ?? null,
-        });
+        token.userId = await upsertUser(
+          fetch,
+          { base, secret },
+          {
+            githubId: String(profile.id),
+            email: (profile.email as string | null) ?? null,
+            name: (profile.name as string | null) ?? null,
+            avatarUrl: (profile.avatar_url as string | null) ?? null,
+          },
+        );
       }
       return token;
     },
@@ -978,11 +1003,11 @@ export default function NotAllowedPage(): React.ReactNode {
 Add `import { SessionProvider } from 'next-auth/react';` and wrap the existing tree:
 
 ```tsx
-    <SessionProvider>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-        {/* …existing QueryClientProvider / LiveSync / TooltipProvider… */}
-      </ThemeProvider>
-    </SessionProvider>
+<SessionProvider>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+    {/* …existing QueryClientProvider / LiveSync / TooltipProvider… */}
+  </ThemeProvider>
+</SessionProvider>
 ```
 
 - [ ] **Step 7: Run to verify pass + typecheck**
@@ -1079,7 +1104,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const STRIP = new Set([
-  'connection', 'keep-alive', 'transfer-encoding', 'upgrade', 'host', 'content-length', 'cookie',
+  'connection',
+  'keep-alive',
+  'transfer-encoding',
+  'upgrade',
+  'host',
+  'content-length',
+  'cookie',
 ]);
 
 async function handler(
@@ -1108,7 +1139,11 @@ async function handler(
   headers.set('X-User-Id', userId);
   headers.set('X-Internal-Key', secret);
 
-  const init: RequestInit & { duplex?: 'half' } = { method: req.method, headers, redirect: 'manual' };
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: req.method,
+    headers,
+    redirect: 'manual',
+  };
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     init.body = req.body;
     init.duplex = 'half'; // required to stream a request body through Node's fetch
@@ -1386,7 +1421,9 @@ export function ApiKeysSettings(): React.ReactNode {
           Key name
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="laptop" />
         </label>
-        <Button type="submit" disabled={create.isPending}>Create key</Button>
+        <Button type="submit" disabled={create.isPending}>
+          Create key
+        </Button>
       </form>
 
       {freshRaw && (
@@ -1478,18 +1515,29 @@ function seedKey() {
   const { db } = createDb(':memory:');
   runMigrations(db);
   const user = userService.upsertByGithubId(db, {
-    githubId: 'gh1', email: 'a@x.dev', name: 'A', avatarUrl: null,
+    githubId: 'gh1',
+    email: 'a@x.dev',
+    name: 'A',
+    avatarUrl: null,
   });
   const { token } = apiKeyService.create(db, user.id, 'agent'); // 7a signature: (db, userId, name)
   return { db, user, token };
 }
 
 const initBody = JSON.stringify({
-  jsonrpc: '2.0', id: 1, method: 'initialize',
-  params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 's', version: '0' } },
+  jsonrpc: '2.0',
+  id: 1,
+  method: 'initialize',
+  params: {
+    protocolVersion: '2024-11-05',
+    capabilities: {},
+    clientInfo: { name: 's', version: '0' },
+  },
 });
 const headers = (extra: Record<string, string> = {}) => ({
-  'content-type': 'application/json', accept: 'application/json, text/event-stream', ...extra,
+  'content-type': 'application/json',
+  accept: 'application/json, text/event-stream',
+  ...extra,
 });
 
 describe('POST /mcp identity', () => {
@@ -1504,7 +1552,9 @@ describe('POST /mcp identity', () => {
     const { db, token } = seedKey();
     const app = createApp(db, { mode: 'hosted', internalSecret: SECRET });
     const res = await app.request('/mcp', {
-      method: 'POST', headers: headers({ 'X-API-Key': token }), body: initBody,
+      method: 'POST',
+      headers: headers({ 'X-API-Key': token }),
+      body: initBody,
     });
     expect(res.status).toBe(200);
     expect(res.headers.get('mcp-session-id')).toBeTruthy();
@@ -1564,7 +1614,9 @@ export function mcpRoutes(): Hono<AppEnv> {
   r.all('/', async (c) => {
     const { req: nodeReq, res: nodeRes } = c.env.incoming
       ? { req: c.env.incoming, res: c.env.outgoing } // node-server adapter
-      : (() => { throw new Error('/mcp requires the Node server adapter'); })();
+      : (() => {
+          throw new Error('/mcp requires the Node server adapter');
+        })();
 
     const sessionId = c.req.header('mcp-session-id');
     const body = c.req.method === 'POST' ? await c.req.json().catch(() => undefined) : undefined;
@@ -1575,7 +1627,9 @@ export function mcpRoutes(): Hono<AppEnv> {
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => transports.set(id, transport),
       });
-      transport.onclose = () => { if (transport.sessionId) transports.delete(transport.sessionId); };
+      transport.onclose = () => {
+        if (transport.sessionId) transports.delete(transport.sessionId);
+      };
       const server = createMcpServer(c.var.ctx); // session bound to the X-API-Key owner
       await server.connect(transport);
       await transport.handleRequest(nodeReq, nodeRes, body);
@@ -1583,7 +1637,11 @@ export function mcpRoutes(): Hono<AppEnv> {
     }
 
     const transport = sessionId ? transports.get(sessionId) : undefined;
-    if (!transport) return c.json({ jsonrpc: '2.0', error: { code: -32000, message: 'no valid session' }, id: null }, 400);
+    if (!transport)
+      return c.json(
+        { jsonrpc: '2.0', error: { code: -32000, message: 'no valid session' }, id: null },
+        400,
+      );
     await transport.handleRequest(nodeReq, nodeRes, body);
     return RESPONSE_ALREADY_SENT;
   });
@@ -1655,8 +1713,18 @@ describe('hosted-mode identity smoke', () => {
     runMigrations(db);
     const app = createApp(db, { mode: 'hosted', internalSecret: SECRET });
 
-    const a = userService.upsertByGithubId(db, { githubId: 'A', email: 'a@x.dev', name: 'A', avatarUrl: null });
-    const b = userService.upsertByGithubId(db, { githubId: 'B', email: 'b@x.dev', name: 'B', avatarUrl: null });
+    const a = userService.upsertByGithubId(db, {
+      githubId: 'A',
+      email: 'a@x.dev',
+      name: 'A',
+      avatarUrl: null,
+    });
+    const b = userService.upsertByGithubId(db, {
+      githubId: 'B',
+      email: 'b@x.dev',
+      name: 'B',
+      avatarUrl: null,
+    });
     const keyA = apiKeyService.create(db, a.id, 'cli').token;
 
     const proxy = (uid: string, path: string, init: RequestInit = {}) =>
@@ -1682,7 +1750,9 @@ describe('hosted-mode identity smoke', () => {
     expect((await proxy(b.id, `/projects/${project.id}`)).status).toBe(404);
 
     // A's API key resolves to A and sees A's project.
-    const viaKey = (await app.request('/projects', { headers: { 'X-API-Key': keyA } }).then((r) => r.json())) as unknown[];
+    const viaKey = (await app
+      .request('/projects', { headers: { 'X-API-Key': keyA } })
+      .then((r) => r.json())) as unknown[];
     expect(viaKey).toHaveLength(1);
 
     // No identity at all in hosted mode → 401.
@@ -1693,8 +1763,18 @@ describe('hosted-mode identity smoke', () => {
     const { db } = createDb(':memory:');
     runMigrations(db);
     const app = createApp(db, { mode: 'hosted', internalSecret: SECRET });
-    const a = userService.upsertByGithubId(db, { githubId: 'A', email: 'a@x.dev', name: 'A', avatarUrl: null });
-    const b = userService.upsertByGithubId(db, { githubId: 'B', email: 'b@x.dev', name: 'B', avatarUrl: null });
+    const a = userService.upsertByGithubId(db, {
+      githubId: 'A',
+      email: 'a@x.dev',
+      name: 'A',
+      avatarUrl: null,
+    });
+    const b = userService.upsertByGithubId(db, {
+      githubId: 'B',
+      email: 'b@x.dev',
+      name: 'B',
+      avatarUrl: null,
+    });
 
     // Open A's event stream via the proxy identity.
     const stream = await app.request('/events', {

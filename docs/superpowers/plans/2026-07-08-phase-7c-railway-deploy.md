@@ -105,6 +105,7 @@ export default nextConfig;
 The app has no `public/` directory; create one so the image's `COPY … apps/web/public` never fails.
 
 ```
+
 ```
 
 (Empty file. `apps/web/public/.gitkeep`.)
@@ -496,10 +497,10 @@ Expected: two `OK …` lines (valid JSON).
 
 Record (for the runbook) the settings that live **outside** `railway.json`, applied per service in the dashboard/CLI:
 
-| Service | Root/config path | Public domain | Volume | Networking role |
-| --- | --- | --- | --- | --- |
-| `api` | `apps/api/railway.json` | **Yes** — every route auth-gated; serves REST + `/mcp` | **Yes** — mount at `/data` | internal target `api.railway.internal:8787` (web proxy) + public domain (external `/mcp`) |
-| `web` | `apps/web/railway.json` | **Yes** (custom domain) | No | client → `api` over internal DNS |
+| Service | Root/config path        | Public domain                                          | Volume                     | Networking role                                                                           |
+| ------- | ----------------------- | ------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------- |
+| `api`   | `apps/api/railway.json` | **Yes** — every route auth-gated; serves REST + `/mcp` | **Yes** — mount at `/data` | internal target `api.railway.internal:8787` (web proxy) + public domain (external `/mcp`) |
+| `web`   | `apps/web/railway.json` | **Yes** (custom domain)                                | No                         | client → `api` over internal DNS                                                          |
 
 There is **no `mcp` service** — the MCP surface is `api`'s `/mcp` route (D1).
 
@@ -574,22 +575,22 @@ JUSTDOIT_MCP_PORT=3939
 
 Full per-service matrix (local vs hosted):
 
-| Variable | Service(s) | Local value | Hosted (Railway) value | Secret? |
-| --- | --- | --- | --- | --- |
-| `JUSTDOIT_MODE` | all | `local` (or unset) | `hosted` | no |
-| `JUSTDOIT_DB` | api | `./justdoit.db` (default) | `/data/justdoit.db` | no |
-| `JUSTDOIT_FILES_DIR` | api | `./data/files` (default) | `/data/files` | no |
-| `JUSTDOIT_API_PORT` | api | `8787` | `8787` | no |
-| `JUSTDOIT_API_HOST` | api | `127.0.0.1` (default) | `0.0.0.0` (image default) | no |
-| `INTERNAL_API_SECRET` | api, web, mcp | any dev string | `openssl rand -hex 32` | **yes** |
-| `INTERNAL_API_URL` | web, mcp | `http://127.0.0.1:8787` | `http://api.railway.internal:8787` | no |
-| `NEXT_PUBLIC_API_URL` | web | `/api/backend` | `/api/backend` | no |
-| `AUTH_SECRET` | web | dev string | `openssl rand -base64 32` | **yes** |
-| `AUTH_GITHUB_ID` | web | OAuth app (localhost callback) | OAuth app (prod callback) | **yes** |
-| `AUTH_GITHUB_SECRET` | web | OAuth app secret | OAuth app secret | **yes** |
-| `AUTH_ALLOWLIST` | web | your GitHub login | comma-list of logins | no |
-| `AUTH_URL` | web | `http://localhost:3000` | `https://<custom-domain>` | no |
-| `JUSTDOIT_MCP_PORT` | mcp (local only) | `3939` | — (no hosted mcp service) | no |
+| Variable              | Service(s)       | Local value                    | Hosted (Railway) value             | Secret? |
+| --------------------- | ---------------- | ------------------------------ | ---------------------------------- | ------- |
+| `JUSTDOIT_MODE`       | all              | `local` (or unset)             | `hosted`                           | no      |
+| `JUSTDOIT_DB`         | api              | `./justdoit.db` (default)      | `/data/justdoit.db`                | no      |
+| `JUSTDOIT_FILES_DIR`  | api              | `./data/files` (default)       | `/data/files`                      | no      |
+| `JUSTDOIT_API_PORT`   | api              | `8787`                         | `8787`                             | no      |
+| `JUSTDOIT_API_HOST`   | api              | `127.0.0.1` (default)          | `0.0.0.0` (image default)          | no      |
+| `INTERNAL_API_SECRET` | api, web, mcp    | any dev string                 | `openssl rand -hex 32`             | **yes** |
+| `INTERNAL_API_URL`    | web, mcp         | `http://127.0.0.1:8787`        | `http://api.railway.internal:8787` | no      |
+| `NEXT_PUBLIC_API_URL` | web              | `/api/backend`                 | `/api/backend`                     | no      |
+| `AUTH_SECRET`         | web              | dev string                     | `openssl rand -base64 32`          | **yes** |
+| `AUTH_GITHUB_ID`      | web              | OAuth app (localhost callback) | OAuth app (prod callback)          | **yes** |
+| `AUTH_GITHUB_SECRET`  | web              | OAuth app secret               | OAuth app secret                   | **yes** |
+| `AUTH_ALLOWLIST`      | web              | your GitHub login              | comma-list of logins               | no      |
+| `AUTH_URL`            | web              | `http://localhost:3000`        | `https://<custom-domain>`          | no      |
+| `JUSTDOIT_MCP_PORT`   | mcp (local only) | `3939`                         | — (no hosted mcp service)          | no      |
 
 - [ ] **Step 2: Verify `.env.example` is committed but real env files stay ignored**
 
@@ -891,19 +892,21 @@ git commit -m "docs(deploy): Railway deploy runbook (DEPLOY.md)"
 - [ ] **Step 1: Append the smoke checklist to `docs/DEPLOY.md`**
 
 ````markdown
-
 ## Post-deploy smoke checklist
 
 Run in order against the live deployment. A single failure blocks go-live.
 
 1. **api health + auth-gating.** Health check over internal DNS (from the `api`
    service shell, or `web`'s shell):
+
    ```bash
    node -e "fetch('http://api.railway.internal:8787/health').then(r=>r.text()).then(console.log)"
    ```
+
    Expect `{"status":"ok"}`. `api` **does** have a public domain (for external
    `/mcp`), but **every route requires auth** — confirm an anonymous public
    request is rejected:
+
    ```bash
    curl -fsS -o /dev/null -w "%{http_code}\n" https://<api-public-domain>/projects   # expect 401
    ```
@@ -926,6 +929,7 @@ Run in order against the live deployment. A single failure blocks go-live.
 
 7. **Public MCP with the key.** From your laptop, hit `api`'s key-gated `/mcp`
    route on the api public domain:
+
    ```bash
    curl -fsS https://<api-public-domain>/mcp -X POST \
      -H "X-API-Key: <raw-key>" \
@@ -933,6 +937,7 @@ Run in order against the live deployment. A single failure blocks go-live.
      -H 'accept: application/json, text/event-stream' \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}'
    ```
+
    Expect an MCP `initialize` response (and an `mcp-session-id` header). A request
    with **no**/wrong key → `401`.
 
@@ -1003,4 +1008,7 @@ git commit -m "docs(deploy): post-deploy smoke checklist + isolation gate"
 - [ ] `railway up --service api` then `--service web` succeed; logs show api listening + Next.js ready.
 - [ ] Custom domain wired on `web`; `AUTH_URL` + OAuth callback updated to it; web redeployed.
 - [ ] Smoke checklist §§1–9 all pass, **including the cross-user isolation gate (§8)** and the key-gated `/mcp` check (§7).
+
+```
+
 ```

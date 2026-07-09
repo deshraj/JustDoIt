@@ -12,6 +12,7 @@ to the acting user; users sign in with GitHub (allowlist-gated) and get a fully 
 workspace. Agents reach a user's data through a per-user API key.
 
 **Decisions (locked):**
+
 - **Host:** Railway (long-running containers + persistent volume — the app runs largely as-is).
 - **Auth:** App-level (Auth.js) with **GitHub OAuth**. **Allowlist-only** signup.
 - **Tenancy:** Multitenant — per-user data isolation. Local mode pins one implicit user.
@@ -61,18 +62,22 @@ cross-tenant isolation test suite.
 Add two tables and an owner column to every user-owned table.
 
 ### New: `users`
+
 - `id` (uuid pk), `github_id` (unique), `email`, `name`, `avatar_url`, `created_at`, `updated_at`.
 
 ### New: `api_keys`
+
 - `id` (uuid pk), `user_id` → users, `name`, `token_hash` (sha-256; raw shown once on creation),
   `last_used_at`, `created_at`. Supports multiple keys per user, revocable.
 
 ### Owner column
+
 Add `user_id` (text, not null, FK → `users.id`, `onDelete: cascade`) + an index on `user_id`
 to: `projects`, `tasks`, `tags`, `time_entries`, `reminders`, `activity_log`, `attachments`,
 `saved_filters`. `tags.name` uniqueness becomes **per-user** (`unique(user_id, name)`), not global.
 
 ### Migration & backfill
+
 A migration creates the tables/columns, seeds a fixed **local user**
 (`id = 'local-user'`), and backfills `user_id = 'local-user'` on all existing rows so current
 local databases keep working with no data loss.
@@ -82,7 +87,10 @@ local databases keep working with no data loss.
 **Pattern:** every service method takes a **context** instead of a bare `db`:
 
 ```ts
-interface Ctx { db: Db; userId: string }
+interface Ctx {
+  db: Db;
+  userId: string;
+}
 // before: taskService.list(db, filters)
 // after:  taskService.list(ctx, filters)
 ```
@@ -103,17 +111,20 @@ attach B's tag / reparent under B's task / file time against B's task.
 ## 6. Identity & auth flow
 
 ### Modes
+
 - **Local mode** (default when GitHub env is absent, or `JUSTDOIT_MODE=local`): no auth. All
   requests act as the fixed `local-user`. Current behavior, unchanged.
 - **Hosted mode** (`JUSTDOIT_MODE=hosted`): auth required; real users.
 
 ### Web (Auth.js + GitHub)
+
 - GitHub OAuth provider. On sign-in, the `signIn` callback checks the email/login against
   `AUTH_ALLOWLIST` (comma-separated); non-allowlisted users are rejected with a clear screen.
 - On success, upsert a `users` row and put `userId` in the session/JWT.
 - Middleware protects all app routes and the proxy; unauthenticated → sign-in.
 
 ### Web → API proxy
+
 - A catch-all route (`/api/backend/[...path]`) forwards browser requests to the **internal** API
   base (`INTERNAL_API_URL`), after verifying the session, adding headers
   `X-User-Id: <session.userId>` and `X-Internal-Key: <INTERNAL_API_SECRET>`.
@@ -121,15 +132,18 @@ attach B's tag / reparent under B's task / file time against B's task.
   points at this proxy in hosted mode.
 
 ### API auth middleware (resolves `userId`)
+
 Order of resolution:
-1. Valid `X-Internal-Key` (matches `INTERNAL_API_SECRET`) → trust `X-User-Id`. *(web proxy)*
-2. Else valid `X-API-Key` → `apiKeyService.resolveToken` (`api_keys.token_hash`) → `userId`. *(agents/MCP/scripts)*
+
+1. Valid `X-Internal-Key` (matches `INTERNAL_API_SECRET`) → trust `X-User-Id`. _(web proxy)_
+2. Else valid `X-API-Key` → `apiKeyService.resolveToken` (`api_keys.token_hash`) → `userId`. _(agents/MCP/scripts)_
 3. Else, in local mode (`JUSTDOIT_MODE=local`) → `local-user`.
 4. Else (hosted, no identity) → **401**. No anonymous access in hosted mode.
 
 Every route builds `ctx = { db, userId }` from this and passes it to `core`.
 
 ### Per-user API keys
+
 - A settings surface (web) to create/name/revoke keys; the raw key is shown once, stored hashed.
 - The key-gated `/mcp` endpoint (served by `api`) and the public REST API resolve the key to a
   `userId`, so an agent only ever sees its owner's data.
@@ -138,10 +152,10 @@ Every route builds `ctx = { db, userId }` from this and passes it to `core`.
 
 One Railway project, **two** services from this monorepo:
 
-| Service | Build | Public? | Notes |
-| --- | --- | --- | --- |
-| `web` | Dockerfile (Next.js standalone) | ✅ custom domain | Auth.js, proxy → `api` over internal DNS. |
-| `api` | Dockerfile (tsx/node, `better-sqlite3`) | ✅ public domain, **every route auth-gated** | Mounts volume at `/data`; serves REST **+ key-gated `/mcp`**; runs scheduler; single replica. |
+| Service | Build                                   | Public?                                      | Notes                                                                                         |
+| ------- | --------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `web`   | Dockerfile (Next.js standalone)         | ✅ custom domain                             | Auth.js, proxy → `api` over internal DNS.                                                     |
+| `api`   | Dockerfile (tsx/node, `better-sqlite3`) | ✅ public domain, **every route auth-gated** | Mounts volume at `/data`; serves REST **+ key-gated `/mcp`**; runs scheduler; single replica. |
 
 - **Volume** mounted at `/data` on `api` → `JUSTDOIT_DB=/data/justdoit.db`,
   `JUSTDOIT_FILES_DIR=/data/files`. Single `api` replica (SQLite file ownership).
@@ -168,8 +182,8 @@ One Railway project, **two** services from this monorepo:
   paths; per-user API-key create/revoke UI + hashing; a key-gated **`/mcp`** streamable-HTTP route
   served by `apps/api` (`apps/mcp` stays local stdio).
 - **7c — Railway packaging:** Dockerfiles for `web`/`api`; `railway.json` + volume + internal DNS
-  + env; `api` public with a key-gated `/mcp`; Next.js standalone build; deploy runbook; smoke
-  checklist. `apps/mcp` ships no hosted service (local stdio only).
+  - env; `api` public with a key-gated `/mcp`; Next.js standalone build; deploy runbook; smoke
+    checklist. `apps/mcp` ships no hosted service (local stdio only).
 
 ## 9. Security considerations
 

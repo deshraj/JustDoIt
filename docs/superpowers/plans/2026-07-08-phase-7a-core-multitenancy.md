@@ -4,7 +4,7 @@
 
 **Goal:** Give every user-owned row an owner and scope every `core` query to the acting user, so a request acting as user A can never read, mutate, or discover a row owned by user B (spec §2). Introduce `users` + `api_keys` tables, a `user_id` column on all eight user-owned tables, per-user tag uniqueness, a data-preserving migration that seeds a fixed `local-user` and backfills existing rows, a `Ctx` threaded through every service, a `userService`/`apiKeyService`, and a cross-tenant isolation test suite that is the security gate. The API and MCP adapters are updated minimally so the app still builds and runs in **local mode** (`local-user`); real key→user resolution is Phase 7b.
 
-**Architecture:** `packages/core` owns tenancy. Every user-owned service method changes from `(db, …)` to `(ctx, …)` where `interface Ctx { db: Db; userId: string }`. Reads compose `userScope(table, ctx.userId)` (a centralized `eq(table.userId, userId)` predicate) with existing filters; inserts stamp `userId: ctx.userId`; by-id ops filter on `userId` so a foreign id yields `NotFound`; cross-entity references (`projectId`, `parentTaskId`, `tagId`, `taskId`) are validated to belong to `ctx.userId` before use. `users`/`api_keys` are *not* user-owned, so `userService`/`apiKeyService` take a bare `db` (plus an explicit `userId` argument where the operation is inherently per-user). In `apps/api` a **single Hono middleware** sets the per-request context as `c.set('ctx', { db, userId })` (readable as `c.var.ctx`), defaulting `userId` to `LOCAL_USER_ID` in 7a; every route handler reads `c.var.ctx` and passes it to `core`. (Phase 7b replaces only that middleware's identity resolution — the routes are untouched.) `apps/mcp` builds a `{ db, userId: LOCAL_USER_ID }` ctx in local mode.
+**Architecture:** `packages/core` owns tenancy. Every user-owned service method changes from `(db, …)` to `(ctx, …)` where `interface Ctx { db: Db; userId: string }`. Reads compose `userScope(table, ctx.userId)` (a centralized `eq(table.userId, userId)` predicate) with existing filters; inserts stamp `userId: ctx.userId`; by-id ops filter on `userId` so a foreign id yields `NotFound`; cross-entity references (`projectId`, `parentTaskId`, `tagId`, `taskId`) are validated to belong to `ctx.userId` before use. `users`/`api_keys` are _not_ user-owned, so `userService`/`apiKeyService` take a bare `db` (plus an explicit `userId` argument where the operation is inherently per-user). In `apps/api` a **single Hono middleware** sets the per-request context as `c.set('ctx', { db, userId })` (readable as `c.var.ctx`), defaulting `userId` to `LOCAL_USER_ID` in 7a; every route handler reads `c.var.ctx` and passes it to `core`. (Phase 7b replaces only that middleware's identity resolution — the routes are untouched.) `apps/mcp` builds a `{ db, userId: LOCAL_USER_ID }` ctx in local mode.
 
 **Tech Stack:** unchanged from Phases 0–6 — TypeScript 5.7 (strict), Drizzle ORM + `better-sqlite3`, Drizzle Kit, Vitest 3, Hono, Zod 3, `@modelcontextprotocol/sdk`.
 
@@ -14,9 +14,9 @@
 - **Fixed local user:** `id = 'local-user'`. Exported as `LOCAL_USER_ID` from `@justdoit/core`. Local mode (the only mode in 7a) pins every request to it.
 - **Owner column:** `user_id text NOT NULL` on `projects`, `tasks`, `tags`, `time_entries`, `reminders`, `activity_log`, `attachments`, `saved_filters`, each with an index and a declared FK → `users.id` `onDelete: cascade` in `schema.ts`.
 - **Per-user tag uniqueness:** `tags.name` is unique **per user** (`unique(user_id, name)`), not global.
-- **Transitional schema default (scaffolding):** the `user_id` column is declared with a temporary `.$defaultFn(() => LOCAL_USER_ID)` so every pre-existing `(db, …)` insert keeps compiling while services are converted one cluster at a time. **Task 16 removes this default**, after which the type system *forces* every insert to stamp `userId: ctx.userId` (hosted-mode safety). Do not skip Task 16.
+- **Transitional schema default (scaffolding):** the `user_id` column is declared with a temporary `.$defaultFn(() => LOCAL_USER_ID)` so every pre-existing `(db, …)` insert keeps compiling while services are converted one cluster at a time. **Task 16 removes this default**, after which the type system _forces_ every insert to stamp `userId: ctx.userId` (hosted-mode safety). Do not skip Task 16.
 - **SQLite ALTER limitation (documented, deliberate):** SQLite cannot `ALTER TABLE … ADD COLUMN` that is simultaneously `NOT NULL` (needs a non-NULL default) **and** carries a `REFERENCES` clause (needs a NULL default) while `PRAGMA foreign_keys=ON`. The 0001 migration therefore adds `user_id` as `NOT NULL DEFAULT 'local-user'` **without** an inline DB-level FK, and swaps the `tags` unique index in place (no table rebuild). Two harmless divergences result between `schema.ts` and the physical DB: (a) the DB column keeps a `DEFAULT 'local-user'`; (b) the DB lacks the `user_id` FK constraint. Neither affects the code-enforced §2 invariant (Drizzle never relies on DB FKs for query scoping). **Do not run `pnpm --filter @justdoit/core db:generate` after Task 1** — it would try to "reconcile" this drift by rebuilding tables. A squashed baseline that adds the physical FK via table rebuild is a Phase 7c cutover task.
-- **Adapters stay lockstep:** converting a service changes its signature, so the *same task* updates that service's REST route(s), MCP tool(s), and every test that calls it. Task boundaries are always green (`pnpm typecheck && pnpm test` pass).
+- **Adapters stay lockstep:** converting a service changes its signature, so the _same task_ updates that service's REST route(s), MCP tool(s), and every test that calls it. Task boundaries are always green (`pnpm typecheck && pnpm test` pass).
 - **Clock convention unchanged:** injected as trailing positional `now?: Date`.
 
 ## File Structure (new/changed in 7a)
@@ -321,7 +321,10 @@ import { describe, it, expect } from 'vitest';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migration = (tag: string): string =>
-  readFileSync(resolve(here, `../drizzle/${tag}.sql`), 'utf8').replaceAll('--> statement-breakpoint', '');
+  readFileSync(resolve(here, `../drizzle/${tag}.sql`), 'utf8').replaceAll(
+    '--> statement-breakpoint',
+    '',
+  );
 
 describe('0001 multitenancy migration', () => {
   it('creates the local user and backfills user_id on pre-existing rows', () => {
@@ -330,47 +333,54 @@ describe('0001 multitenancy migration', () => {
 
     // Baseline schema (0000) + legacy data that predates tenancy.
     sqlite.exec(migration('0000_solid_molten_man'));
-    sqlite.prepare(
-      `INSERT INTO projects (id, name, position, archived, created_at, updated_at)
+    sqlite
+      .prepare(
+        `INSERT INTO projects (id, name, position, archived, created_at, updated_at)
        VALUES ('p1', 'Legacy', 0, 0, 0, 0)`,
-    ).run();
-    sqlite.prepare(
-      `INSERT INTO tasks (id, title, status, position, archived, created_at, updated_at)
+      )
+      .run();
+    sqlite
+      .prepare(
+        `INSERT INTO tasks (id, title, status, position, archived, created_at, updated_at)
        VALUES ('t1', 'Legacy task', 'todo', 0, 0, 0, 0)`,
-    ).run();
-    sqlite.prepare(
-      `INSERT INTO tags (id, name, created_at, updated_at) VALUES ('g1', 'legacy', 0, 0)`,
-    ).run();
+      )
+      .run();
+    sqlite
+      .prepare(`INSERT INTO tags (id, name, created_at, updated_at) VALUES ('g1', 'legacy', 0, 0)`)
+      .run();
 
     // Apply the tenancy migration.
     sqlite.exec(migration('0001_multitenancy'));
 
     // Local user exists.
     const u = sqlite.prepare(`SELECT id, name FROM users WHERE id = 'local-user'`).get() as
-      | { id: string; name: string }
-      | undefined;
+      { id: string; name: string } | undefined;
     expect(u?.id).toBe('local-user');
 
     // Existing rows are backfilled.
     for (const table of ['projects', 'tasks', 'tags']) {
-      const row = sqlite.prepare(`SELECT user_id FROM ${table} LIMIT 1`).get() as { user_id: string };
+      const row = sqlite.prepare(`SELECT user_id FROM ${table} LIMIT 1`).get() as {
+        user_id: string;
+      };
       expect(row.user_id).toBe('local-user');
     }
 
     // Per-user tag uniqueness: same name allowed for a different user.
-    sqlite.prepare(
-      `INSERT INTO users (id, created_at, updated_at) VALUES ('u2', 0, 0)`,
-    ).run();
+    sqlite.prepare(`INSERT INTO users (id, created_at, updated_at) VALUES ('u2', 0, 0)`).run();
     expect(() =>
-      sqlite.prepare(
-        `INSERT INTO tags (id, user_id, name, created_at, updated_at) VALUES ('g2', 'u2', 'legacy', 0, 0)`,
-      ).run(),
+      sqlite
+        .prepare(
+          `INSERT INTO tags (id, user_id, name, created_at, updated_at) VALUES ('g2', 'u2', 'legacy', 0, 0)`,
+        )
+        .run(),
     ).not.toThrow();
     // …but a duplicate (user, name) is rejected.
     expect(() =>
-      sqlite.prepare(
-        `INSERT INTO tags (id, user_id, name, created_at, updated_at) VALUES ('g3', 'local-user', 'legacy', 0, 0)`,
-      ).run(),
+      sqlite
+        .prepare(
+          `INSERT INTO tags (id, user_id, name, created_at, updated_at) VALUES ('g3', 'local-user', 'legacy', 0, 0)`,
+        )
+        .run(),
     ).toThrow();
 
     sqlite.close();
@@ -724,7 +734,11 @@ export const apiKeyService = {
 
   /** Resolve a raw token to its owner id (or null), stamping last_used_at on hit. */
   resolveToken(db: Db, rawToken: string, now: Date = new Date()): string | null {
-    const row = db.select().from(apiKeys).where(eq(apiKeys.tokenHash, hashToken(rawToken))).get();
+    const row = db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.tokenHash, hashToken(rawToken)))
+      .get();
     if (!row) return null;
     db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, row.id)).run();
     return row.userId;
@@ -797,7 +811,15 @@ export function emit(
   payload?: Record<string, unknown>,
   at: number = Date.now(),
 ): void {
-  events.publish({ type: `${PREFIX[entityType]}.${action}`, userId, entityType, entityId, action, payload, at });
+  events.publish({
+    type: `${PREFIX[entityType]}.${action}`,
+    userId,
+    entityType,
+    entityId,
+    action,
+    payload,
+    at,
+  });
 }
 ```
 
@@ -970,7 +992,10 @@ export const projectService = {
 
   remove(ctx: Ctx, id: string): void {
     projectService.get(ctx, id); // 404s a foreign id
-    ctx.db.delete(projects).where(and(eq(projects.id, id), userScope(projects, ctx.userId))).run();
+    ctx.db
+      .delete(projects)
+      .where(and(eq(projects.id, id), userScope(projects, ctx.userId)))
+      .run();
     emit(ctx.userId, 'project', id, 'deleted', {});
   },
 };
@@ -1126,40 +1151,63 @@ import type { Ctx } from '../context';
 import { userScope } from '../scope';
 
 export function listOverdue(ctx: Ctx, now: Date): Task[] {
-  return ctx.db.select().from(tasks)
+  return ctx.db
+    .select()
+    .from(tasks)
     .where(and(userScope(tasks, ctx.userId), lt(tasks.dueAt, now), activeAndDue()))
-    .orderBy(asc(tasks.dueAt)).all();
+    .orderBy(asc(tasks.dueAt))
+    .all();
 }
 // listDueToday / listUpcoming: same pattern — prepend userScope(tasks, ctx.userId) to the and(...).
 
 function nextPosition(ctx: Ctx, projectId: string | null, parentTaskId: string | null): number {
-  const rows = ctx.db.select({ position: tasks.position }).from(tasks)
-    .where(and(
-      userScope(tasks, ctx.userId),
-      projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId),
-      parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId),
-    )).all();
+  const rows = ctx.db
+    .select({ position: tasks.position })
+    .from(tasks)
+    .where(
+      and(
+        userScope(tasks, ctx.userId),
+        projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId),
+        parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId),
+      ),
+    )
+    .all();
   return rows.reduce((m, r) => Math.max(m, r.position), 0) + 1;
 }
 
 export function spawnNextRecurrence(ctx: Ctx, task: Task, now: Date): Task | null {
   if (!task.recurrence) return null;
   // …compute next/delta unchanged…
-  const [created] = ctx.db.insert(tasks).values({
-    userId: ctx.userId,
-    title: task.title, description: task.description, status: 'todo', priority: task.priority,
-    projectId: task.projectId, parentTaskId: task.parentTaskId,
-    position: nextPosition(ctx, task.projectId, task.parentTaskId),
-    estimateMinutes: task.estimateMinutes, recurrence: task.recurrence,
-    dueAt: task.dueAt ? new Date(task.dueAt.getTime() + delta) : null,
-    startAt: task.startAt ? new Date(task.startAt.getTime() + delta) : null,
-    completedAt: null,
-  }).returning().all();
+  const [created] = ctx.db
+    .insert(tasks)
+    .values({
+      userId: ctx.userId,
+      title: task.title,
+      description: task.description,
+      status: 'todo',
+      priority: task.priority,
+      projectId: task.projectId,
+      parentTaskId: task.parentTaskId,
+      position: nextPosition(ctx, task.projectId, task.parentTaskId),
+      estimateMinutes: task.estimateMinutes,
+      recurrence: task.recurrence,
+      dueAt: task.dueAt ? new Date(task.dueAt.getTime() + delta) : null,
+      startAt: task.startAt ? new Date(task.startAt.getTime() + delta) : null,
+      completedAt: null,
+    })
+    .returning()
+    .all();
   if (!created) return null;
-  const sourceTags = ctx.db.select({ tagId: taskTags.tagId }).from(taskTags)
-    .where(eq(taskTags.taskId, task.id)).all();
+  const sourceTags = ctx.db
+    .select({ tagId: taskTags.tagId })
+    .from(taskTags)
+    .where(eq(taskTags.taskId, task.id))
+    .all();
   if (sourceTags.length) {
-    ctx.db.insert(taskTags).values(sourceTags.map((t) => ({ taskId: created.id, tagId: t.tagId }))).run();
+    ctx.db
+      .insert(taskTags)
+      .values(sourceTags.map((t) => ({ taskId: created.id, tagId: t.tagId })))
+      .run();
   }
   return created;
 }
@@ -1177,8 +1225,11 @@ import { userScope } from '../scope';
 import { projects } from '../db/schema';
 
 function requireProject(ctx: Ctx, projectId: string): void {
-  const row = ctx.db.select({ id: projects.id }).from(projects)
-    .where(and(eq(projects.id, projectId), userScope(projects, ctx.userId))).get();
+  const row = ctx.db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), userScope(projects, ctx.userId)))
+    .get();
   if (!row) throw new NotFoundError('Project', projectId);
 }
 
@@ -1193,14 +1244,21 @@ export const taskService = {
     assertValidWindow({ startAt: parsed.startAt ?? null, dueAt: parsed.dueAt ?? null });
     if (parsed.recurrence != null) assertValidRecurrence(parsed.recurrence);
     const position = nextPosition(ctx, parsed.projectId ?? null, parsed.parentTaskId ?? null);
-    const [row] = ctx.db.insert(tasks).values({ ...parsed, userId: ctx.userId, position }).returning().all();
+    const [row] = ctx.db
+      .insert(tasks)
+      .values({ ...parsed, userId: ctx.userId, position })
+      .returning()
+      .all();
     emit(ctx.userId, 'task', row!.id, 'created', { title: row!.title });
     return row!;
   },
 
   get(ctx: Ctx, id: string): Task {
-    const row = ctx.db.select().from(tasks)
-      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId))).get();
+    const row = ctx.db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId)))
+      .get();
     if (!row) throw new NotFoundError('Task', id);
     return row;
   },
@@ -1209,12 +1267,20 @@ export const taskService = {
     const conditions: SQL[] = [userScope(tasks, ctx.userId)];
     // …all existing filter pushes unchanged…
     if (filters.tagId) {
-      const taskIds = ctx.db.select({ id: taskTags.taskId }).from(taskTags)
-        .where(eq(taskTags.tagId, filters.tagId)).all().map((r) => r.id);
+      const taskIds = ctx.db
+        .select({ id: taskTags.taskId })
+        .from(taskTags)
+        .where(eq(taskTags.tagId, filters.tagId))
+        .all()
+        .map((r) => r.id);
       conditions.push(inArray(tasks.id, taskIds.length ? taskIds : ['__none__']));
     }
-    return ctx.db.select().from(tasks).where(and(...conditions))
-      .orderBy(asc(tasks.position), asc(tasks.createdAt)).all();
+    return ctx.db
+      .select()
+      .from(tasks)
+      .where(and(...conditions))
+      .orderBy(asc(tasks.position), asc(tasks.createdAt))
+      .all();
   },
   // update/setStatus/complete/remove/addSubtask/listSubtasks: same mechanical transform —
   //   `db`→`ctx.db`, add `userScope(tasks, ctx.userId)` to every where, `emit(ctx.userId, …)`,
@@ -1235,12 +1301,16 @@ it('A cannot get/update/delete B task, nor reparent under B', () => {
   expect(() => taskService.setStatus(a, bTask.id, 'done')).toThrow(NotFoundError);
   expect(() => taskService.remove(a, bTask.id)).toThrow(NotFoundError);
   // reparent: A creates a task whose parent is B's task → 404 (parent not owned).
-  expect(() => taskService.create(a, { title: 'child', parentTaskId: bTask.id })).toThrow(NotFoundError);
+  expect(() => taskService.create(a, { title: 'child', parentTaskId: bTask.id })).toThrow(
+    NotFoundError,
+  );
   // A cannot attach B's project.
   const bProj = projectService.create(b, { name: 'B proj' });
   expect(() => taskService.create(a, { title: 'x', projectId: bProj.id })).toThrow(NotFoundError);
 });
-it('listOverdue/DueToday/Upcoming exclude B tasks', () => { /* seed B overdue, assert a-side windows empty */ });
+it('listOverdue/DueToday/Upcoming exclude B tasks', () => {
+  /* seed B overdue, assert a-side windows empty */
+});
 ```
 
 - [ ] **Step 4: Update `apps/api/src/routes/tasks.ts`**
@@ -1311,7 +1381,9 @@ bulkDelete(ctx: Ctx, ids: string[]): { deleted: number } {
 it('bulkUpdate rejects when an id belongs to B', () => {
   const bTask = taskService.create(b, { title: 'B' });
   const aTask = taskService.create(a, { title: 'A' });
-  expect(() => taskService.bulkUpdate(a, [aTask.id, bTask.id], { status: 'done' })).toThrow(NotFoundError);
+  expect(() => taskService.bulkUpdate(a, [aTask.id, bTask.id], { status: 'done' })).toThrow(
+    NotFoundError,
+  );
   expect(taskService.get(b, bTask.id).status).toBe('todo'); // untouched
 });
 it('bulkDelete only deletes A tasks', () => {
@@ -1354,63 +1426,109 @@ import { tags, taskTags, tasks, type Tag } from '../db/schema';
 import { NotFoundError, ConflictError } from '../errors';
 import { userScope } from '../scope';
 import type { Ctx } from '../context';
-import { createTagSchema, updateTagSchema, type CreateTagInput, type UpdateTagInput } from '../schemas';
+import {
+  createTagSchema,
+  updateTagSchema,
+  type CreateTagInput,
+  type UpdateTagInput,
+} from '../schemas';
 
 function requireOwnedTask(ctx: Ctx, taskId: string): void {
-  const row = ctx.db.select({ id: tasks.id }).from(tasks)
-    .where(and(eq(tasks.id, taskId), userScope(tasks, ctx.userId))).get();
+  const row = ctx.db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(and(eq(tasks.id, taskId), userScope(tasks, ctx.userId)))
+    .get();
   if (!row) throw new NotFoundError('Task', taskId);
 }
 
 export const tagService = {
   create(ctx: Ctx, input: CreateTagInput): Tag {
     const parsed = createTagSchema.parse(input);
-    const existing = ctx.db.select().from(tags)
-      .where(and(userScope(tags, ctx.userId), eq(tags.name, parsed.name))).get();
+    const existing = ctx.db
+      .select()
+      .from(tags)
+      .where(and(userScope(tags, ctx.userId), eq(tags.name, parsed.name)))
+      .get();
     if (existing) throw new ConflictError(`Tag already exists: ${parsed.name}`);
-    const [row] = ctx.db.insert(tags).values({ ...parsed, userId: ctx.userId }).returning().all();
+    const [row] = ctx.db
+      .insert(tags)
+      .values({ ...parsed, userId: ctx.userId })
+      .returning()
+      .all();
     return row!;
   },
   get(ctx: Ctx, id: string): Tag {
-    const row = ctx.db.select().from(tags)
-      .where(and(eq(tags.id, id), userScope(tags, ctx.userId))).get();
+    const row = ctx.db
+      .select()
+      .from(tags)
+      .where(and(eq(tags.id, id), userScope(tags, ctx.userId)))
+      .get();
     if (!row) throw new NotFoundError('Tag', id);
     return row;
   },
   list(ctx: Ctx): Tag[] {
-    return ctx.db.select().from(tags).where(userScope(tags, ctx.userId)).orderBy(asc(tags.name)).all();
+    return ctx.db
+      .select()
+      .from(tags)
+      .where(userScope(tags, ctx.userId))
+      .orderBy(asc(tags.name))
+      .all();
   },
   update(ctx: Ctx, id: string, patch: UpdateTagInput): Tag {
     const parsed = updateTagSchema.parse(patch);
     tagService.get(ctx, id);
     if (parsed.name !== undefined) {
-      const clash = ctx.db.select().from(tags)
-        .where(and(userScope(tags, ctx.userId), eq(tags.name, parsed.name))).get();
+      const clash = ctx.db
+        .select()
+        .from(tags)
+        .where(and(userScope(tags, ctx.userId), eq(tags.name, parsed.name)))
+        .get();
       if (clash && clash.id !== id) throw new ConflictError(`Tag already exists: ${parsed.name}`);
     }
-    const [row] = ctx.db.update(tags).set({ ...parsed, updatedAt: new Date() })
-      .where(and(eq(tags.id, id), userScope(tags, ctx.userId))).returning().all();
+    const [row] = ctx.db
+      .update(tags)
+      .set({ ...parsed, updatedAt: new Date() })
+      .where(and(eq(tags.id, id), userScope(tags, ctx.userId)))
+      .returning()
+      .all();
     return row!;
   },
   remove(ctx: Ctx, id: string): void {
     tagService.get(ctx, id);
-    ctx.db.delete(tags).where(and(eq(tags.id, id), userScope(tags, ctx.userId))).run();
+    ctx.db
+      .delete(tags)
+      .where(and(eq(tags.id, id), userScope(tags, ctx.userId)))
+      .run();
   },
   attach(ctx: Ctx, taskId: string, tagId: string): void {
-    requireOwnedTask(ctx, taskId);   // task must be owned
-    tagService.get(ctx, tagId);      // tag must be owned
+    requireOwnedTask(ctx, taskId); // task must be owned
+    tagService.get(ctx, tagId); // tag must be owned
     ctx.db.insert(taskTags).values({ taskId, tagId }).onConflictDoNothing().run();
   },
   detach(ctx: Ctx, taskId: string, tagId: string): void {
     requireOwnedTask(ctx, taskId);
-    ctx.db.delete(taskTags).where(and(eq(taskTags.taskId, taskId), eq(taskTags.tagId, tagId))).run();
+    ctx.db
+      .delete(taskTags)
+      .where(and(eq(taskTags.taskId, taskId), eq(taskTags.tagId, tagId)))
+      .run();
   },
   listForTask(ctx: Ctx, taskId: string): Tag[] {
     requireOwnedTask(ctx, taskId);
-    return ctx.db.select({ id: tags.id, userId: tags.userId, name: tags.name, color: tags.color,
-        createdAt: tags.createdAt, updatedAt: tags.updatedAt })
-      .from(taskTags).innerJoin(tags, eq(taskTags.tagId, tags.id))
-      .where(eq(taskTags.taskId, taskId)).orderBy(asc(tags.name)).all();
+    return ctx.db
+      .select({
+        id: tags.id,
+        userId: tags.userId,
+        name: tags.name,
+        color: tags.color,
+        createdAt: tags.createdAt,
+        updatedAt: tags.updatedAt,
+      })
+      .from(taskTags)
+      .innerJoin(tags, eq(taskTags.tagId, tags.id))
+      .where(eq(taskTags.taskId, taskId))
+      .orderBy(asc(tags.name))
+      .all();
   },
 };
 ```
@@ -1487,15 +1605,23 @@ Every `select/update/delete` on `timeEntries` composes `userScope(timeEntries, c
 it('A cannot log time against B task, nor see/stop/update/delete B entries', () => {
   const bTask = taskService.create(b, { title: 'B' });
   expect(() => timeService.startTimer(a, bTask.id)).toThrow(NotFoundError);
-  expect(() => timeService.logManual(a, { taskId: bTask.id, startedAt: new Date(), durationSeconds: 60 })).toThrow(NotFoundError);
-  const bEntry = timeService.logManual(b, { taskId: bTask.id, startedAt: new Date(), durationSeconds: 60 });
+  expect(() =>
+    timeService.logManual(a, { taskId: bTask.id, startedAt: new Date(), durationSeconds: 60 }),
+  ).toThrow(NotFoundError);
+  const bEntry = timeService.logManual(b, {
+    taskId: bTask.id,
+    startedAt: new Date(),
+    durationSeconds: 60,
+  });
   expect(timeService.listEntries(a).map((e) => e.id)).not.toContain(bEntry.id);
   expect(() => timeService.stopTimer(a, { entryId: bEntry.id })).toThrow(NotFoundError);
   expect(() => timeService.deleteEntry(a, bEntry.id)).toThrow(NotFoundError);
 });
 it('running-timer invariant is per user (A and B can each run one)', () => {
-  const at = taskService.create(a, { title: 'A' }); const bt = taskService.create(b, { title: 'B' });
-  timeService.startTimer(a, at.id); timeService.startTimer(b, bt.id);
+  const at = taskService.create(a, { title: 'A' });
+  const bt = taskService.create(b, { title: 'B' });
+  timeService.startTimer(a, at.id);
+  timeService.startTimer(b, bt.id);
   expect(timeService.getRunning(a)?.taskId).toBe(at.id);
   expect(timeService.getRunning(b)?.taskId).toBe(bt.id);
 });
@@ -1573,7 +1699,9 @@ git commit -m "feat: scope reportService to Ctx with isolation test"
 ```ts
 it('A cannot create against B task, nor get/update/delete/markDelivered B reminder', () => {
   const bTask = taskService.create(b, { title: 'B' });
-  expect(() => reminderService.create(a, { taskId: bTask.id, remindAt: new Date() })).toThrow(NotFoundError);
+  expect(() => reminderService.create(a, { taskId: bTask.id, remindAt: new Date() })).toThrow(
+    NotFoundError,
+  );
   const bRem = reminderService.create(b, { taskId: bTask.id, remindAt: new Date() });
   expect(reminderService.list(a).map((r) => r.id)).not.toContain(bRem.id);
   expect(() => reminderService.markDelivered(a, bRem.id)).toThrow(NotFoundError);
@@ -1640,8 +1768,18 @@ git commit -m "feat: scope savedFilterService to Ctx with isolation test"
 ```ts
 it('A cannot add onto B task, nor list/get/remove B attachments', async () => {
   const bTask = taskService.create(b, { title: 'B' });
-  await expect(attachmentService.add(a, { taskId: bTask.id, filename: 'x.txt', mime: 'text/plain', data: new Uint8Array([1]) }, { filesDir })).rejects.toThrow(NotFoundError);
-  const att = await attachmentService.add(b, { taskId: bTask.id, filename: 'y.txt', mime: 'text/plain', data: new Uint8Array([1]) }, { filesDir });
+  await expect(
+    attachmentService.add(
+      a,
+      { taskId: bTask.id, filename: 'x.txt', mime: 'text/plain', data: new Uint8Array([1]) },
+      { filesDir },
+    ),
+  ).rejects.toThrow(NotFoundError);
+  const att = await attachmentService.add(
+    b,
+    { taskId: bTask.id, filename: 'y.txt', mime: 'text/plain', data: new Uint8Array([1]) },
+    { filesDir },
+  );
   expect(() => attachmentService.get(a, att.id, { filesDir })).toThrow(NotFoundError);
 });
 ```
@@ -1752,7 +1890,9 @@ it('import re-stamps to the acting user and never writes into B', () => {
   const forged = { ...snap, projects: snap.projects.map((p) => ({ ...p, userId: 'user-b' })) };
   exportService.importSnapshot(a, forged);
   expect(projectService.get(b, bProj.id).name).toBe('B before'); // B untouched
-  expect(exportService.exportSnapshot(a).projects.every((p) => p.userId === LOCAL_USER_ID)).toBe(true);
+  expect(exportService.exportSnapshot(a).projects.every((p) => p.userId === LOCAL_USER_ID)).toBe(
+    true,
+  );
 });
 ```
 
@@ -1845,7 +1985,9 @@ Change `ownerId` to drop the `$defaultFn` (and the now-unused `LOCAL_USER_ID` im
 
 ```ts
 const ownerId = () =>
-  text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' });
+  text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' });
 ```
 
 - [ ] **Step 2: Typecheck — the compiler now enforces stamping**
@@ -1862,20 +2004,30 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createDb, runMigrations, type Db } from './db';
 import { userService } from './services/user-service';
 import {
-  projectService, taskService, tagService, timeService, reminderService,
-  savedFilterService, attachmentService, exportService,
+  projectService,
+  taskService,
+  tagService,
+  timeService,
+  reminderService,
+  savedFilterService,
+  attachmentService,
+  exportService,
 } from './services';
 import { LOCAL_USER_ID } from './constants';
 import { NotFoundError } from './errors';
 import type { Ctx } from './context';
 
 describe('cross-tenant isolation (security gate, spec §2)', () => {
-  let db: Db; let a: Ctx; let b: Ctx;
+  let db: Db;
+  let a: Ctx;
+  let b: Ctx;
   beforeEach(() => {
-    ({ db } = createDb(':memory:')); runMigrations(db);
+    ({ db } = createDb(':memory:'));
+    runMigrations(db);
     userService.ensureLocalUser(db);
     userService.create(db, { id: 'user-b', name: 'B' });
-    a = { db, userId: LOCAL_USER_ID }; b = { db, userId: 'user-b' };
+    a = { db, userId: LOCAL_USER_ID };
+    b = { db, userId: 'user-b' };
   });
 
   it('lists never leak B rows to A', () => {
@@ -1896,17 +2048,22 @@ describe('cross-tenant isolation (security gate, spec §2)', () => {
       () => projectService.remove(a, p.id),
       () => taskService.get(a, t.id),
       () => taskService.remove(a, t.id),
-    ]) expect(call).toThrow(NotFoundError);
+    ])
+      expect(call).toThrow(NotFoundError);
   });
 
   it('A cannot cross-reference B entities', () => {
     const bTask = taskService.create(b, { title: 'B' });
     const bTag = tagService.create(b, { name: 'B' });
     const aTask = taskService.create(a, { title: 'A' });
-    expect(() => taskService.create(a, { title: 'x', parentTaskId: bTask.id })).toThrow(NotFoundError);
+    expect(() => taskService.create(a, { title: 'x', parentTaskId: bTask.id })).toThrow(
+      NotFoundError,
+    );
     expect(() => tagService.attach(a, aTask.id, bTag.id)).toThrow(NotFoundError);
     expect(() => timeService.startTimer(a, bTask.id)).toThrow(NotFoundError);
-    expect(() => reminderService.create(a, { taskId: bTask.id, remindAt: new Date() })).toThrow(NotFoundError);
+    expect(() => reminderService.create(a, { taskId: bTask.id, remindAt: new Date() })).toThrow(
+      NotFoundError,
+    );
   });
 });
 ```
