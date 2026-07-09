@@ -18,3 +18,5 @@ export * from './services/activity-service';
 export * from './schemas/saved-filter';
 export * from './services/saved-filter-service';
 export * from './services/attachment-service';
+export * from './context';
+export * from './scope';
