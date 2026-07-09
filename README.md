@@ -21,6 +21,28 @@ No accounts. No cloud. No telemetry. Your data is a file you own.
 
 ---
 
+## Screenshots
+
+_A quick tour, with demo data._
+
+**List view** — group by status, filter, save views; tag pills, priorities, and due dates (overdue in red) at a glance.
+
+![List view](docs/screenshots/list.png)
+
+**Kanban board** — drag tasks across status columns.
+
+![Kanban board](docs/screenshots/board.png)
+
+| Calendar | Analytics dashboard |
+| --- | --- |
+| ![Calendar view](docs/screenshots/calendar.png) | ![Analytics dashboard](docs/screenshots/analytics.png) |
+
+| Task detail | Command palette (⌘K) |
+| --- | --- |
+| ![Task detail](docs/screenshots/task-detail.png) | ![Command palette](docs/screenshots/command-palette.png) |
+
+---
+
 ## Architecture
 
 One core, three thin adapters. All business logic and validation lives in `packages/core`; the REST API, MCP server, and web UI are adapters over it.
