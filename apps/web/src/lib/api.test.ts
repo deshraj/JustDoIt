@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, ApiError } from './api';
+import { resolveApiBase } from './auth-config';
 
 const BASE = 'http://localhost:8787';
 
@@ -140,5 +141,23 @@ describe('api client', () => {
     const { url, init } = lastCall(fetchMock);
     expect(url.pathname).toBe('/tasks/t1');
     expect(init?.method).toBe('DELETE');
+  });
+});
+
+describe('api base resolution', () => {
+  const prev = process.env.NEXT_PUBLIC_API_URL;
+  afterEach(() => {
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_API_URL;
+    else process.env.NEXT_PUBLIC_API_URL = prev;
+  });
+
+  it('local default', () => {
+    delete process.env.NEXT_PUBLIC_API_URL;
+    expect(resolveApiBase()).toBe('http://localhost:8787');
+  });
+
+  it('hosted proxy base (relative, same-origin)', () => {
+    process.env.NEXT_PUBLIC_API_URL = '/api/backend';
+    expect(resolveApiBase()).toBe('/api/backend');
   });
 });

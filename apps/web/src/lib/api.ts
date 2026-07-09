@@ -24,6 +24,7 @@ import {
   type TimeReport,
   type TimeReportBucket,
 } from './schemas';
+import { resolveApiBase } from './auth-config';
 
 /**
  * The single data boundary between apps/web and the REST API (apps/api).
@@ -61,7 +62,7 @@ export class ApiError extends Error {
 }
 
 function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
+  return resolveApiBase();
 }
 
 /**
