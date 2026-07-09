@@ -8,7 +8,6 @@ import { guard } from '../helpers.js';
 const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
 export function registerTimeTools(server: McpServer, ctx: Ctx): void {
-
   server.registerTool(
     'start_timer',
     {

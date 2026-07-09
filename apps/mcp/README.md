@@ -11,9 +11,9 @@ also reused by the key-gated, per-user `/mcp` streamable-HTTP route served by
 
 ## Environment
 
-| Var           | Default       | Purpose           |
-| ------------- | ------------- | ------------------ |
-| `JUSTDOIT_DB` | `justdoit.db` | SQLite file path   |
+| Var           | Default       | Purpose          |
+| ------------- | ------------- | ---------------- |
+| `JUSTDOIT_DB` | `justdoit.db` | SQLite file path |
 
 ## Register in an agent harness (stdio)
 

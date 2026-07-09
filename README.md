@@ -188,17 +188,17 @@ shared secret.
 
 All configuration is via environment variables.
 
-| Variable                     | Default                                       | Description                                                                                                      |
-| ---------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `JUSTDOIT_DB`                | `justdoit.db`                                 | Path to the SQLite database file (use `:memory:` for a throwaway DB).                                            |
-| `JUSTDOIT_API_PORT`          | `8787`                                        | Port for the REST API.                                                                                           |
-| `JUSTDOIT_API_HOST`          | `127.0.0.1`                                   | Host the REST API binds to.                                                                                      |
-| `JUSTDOIT_MODE`              | `local`                                       | `local` (zero-login, `local-user`) or `hosted` (requires a resolved identity on every request).                 |
-| `INTERNAL_API_SECRET`        | _(unset)_                                     | Shared secret the web proxy sends as `X-Internal-Key`; required in hosted mode.                                  |
-| `JUSTDOIT_CORS_ORIGIN`       | `http://localhost:3000,http://localhost:8787` | Allowed CORS origins for the API.                                                                                |
-| `JUSTDOIT_FILES_DIR`         | `./data/files`                                | Where task attachments are stored.                                                                               |
-| `JUSTDOIT_DISABLE_SCHEDULER` | _(unset)_                                     | Set to `1` to disable the reminder scheduler / desktop notifications.                                            |
-| `NEXT_PUBLIC_API_URL`        | `http://localhost:8787`                       | Web UI → REST API base URL (`/api/backend` in hosted mode, via the same-origin proxy).                          |
+| Variable                     | Default                                       | Description                                                                                     |
+| ---------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `JUSTDOIT_DB`                | `justdoit.db`                                 | Path to the SQLite database file (use `:memory:` for a throwaway DB).                           |
+| `JUSTDOIT_API_PORT`          | `8787`                                        | Port for the REST API.                                                                          |
+| `JUSTDOIT_API_HOST`          | `127.0.0.1`                                   | Host the REST API binds to.                                                                     |
+| `JUSTDOIT_MODE`              | `local`                                       | `local` (zero-login, `local-user`) or `hosted` (requires a resolved identity on every request). |
+| `INTERNAL_API_SECRET`        | _(unset)_                                     | Shared secret the web proxy sends as `X-Internal-Key`; required in hosted mode.                 |
+| `JUSTDOIT_CORS_ORIGIN`       | `http://localhost:3000,http://localhost:8787` | Allowed CORS origins for the API.                                                               |
+| `JUSTDOIT_FILES_DIR`         | `./data/files`                                | Where task attachments are stored.                                                              |
+| `JUSTDOIT_DISABLE_SCHEDULER` | _(unset)_                                     | Set to `1` to disable the reminder scheduler / desktop notifications.                           |
+| `NEXT_PUBLIC_API_URL`        | `http://localhost:8787`                       | Web UI → REST API base URL (`/api/backend` in hosted mode, via the same-origin proxy).          |
 
 ---
 
