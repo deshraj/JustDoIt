@@ -5,11 +5,10 @@ import {
   logManualSchema,
   updateEntrySchema,
   timeEntryFilterSchema,
-  type Db,
 } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function timeRoutes(db: Db): Hono<AppEnv> {
+export function timeRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.post('/tasks/:id/timer/start', (c) => {

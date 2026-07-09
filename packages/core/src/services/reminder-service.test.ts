@@ -19,11 +19,7 @@ function ctxFor(db: Db, userId: string): Ctx {
 }
 
 function makeTask(db: Db, title = 'task'): string {
-  const [row] = db
-    .insert(tasks)
-    .values({ userId: LOCAL_USER_ID, title })
-    .returning()
-    .all();
+  const [row] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title }).returning().all();
   return row!.id;
 }
 
@@ -76,7 +72,10 @@ describe('reminder-service', () => {
   it('returns only undelivered reminders at/under now', () => {
     const taskId = makeTask(db);
     const now = new Date('2026-04-10T12:00:00Z');
-    const past = reminderService.create(ctx, { taskId, remindAt: new Date('2026-04-10T11:00:00Z') });
+    const past = reminderService.create(ctx, {
+      taskId,
+      remindAt: new Date('2026-04-10T11:00:00Z'),
+    });
     reminderService.create(ctx, { taskId, remindAt: new Date('2026-04-10T13:00:00Z') }); // future
     const alreadyDone = reminderService.create(ctx, {
       taskId,

@@ -36,7 +36,14 @@ describe('EventBus', () => {
     });
     bus.subscribe((e) => seen.push(e.type));
     expect(() =>
-      bus.publish({ type: 'x', userId: 'u1', entityType: 'task', entityId: 'a', action: 'updated', at: 0 }),
+      bus.publish({
+        type: 'x',
+        userId: 'u1',
+        entityType: 'task',
+        entityId: 'a',
+        action: 'updated',
+        at: 0,
+      }),
     ).not.toThrow();
     expect(seen).toEqual(['x']);
   });

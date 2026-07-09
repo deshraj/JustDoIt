@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { reminderService, createReminderBody, updateReminderBody, type Db } from '@justdoit/core';
+import { reminderService, createReminderBody, updateReminderBody } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
 const listQuery = z.object({
@@ -12,7 +12,7 @@ const listQuery = z.object({
     .optional(),
 });
 
-export function reminderRoutes(db: Db): Hono<AppEnv> {
+export function reminderRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/', zValidator('query', listQuery), (c) =>

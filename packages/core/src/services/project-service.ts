@@ -68,7 +68,10 @@ export const projectService = {
 
   remove(ctx: Ctx, id: string): void {
     projectService.get(ctx, id); // 404s a foreign id
-    ctx.db.delete(projects).where(and(eq(projects.id, id), userScope(projects, ctx.userId))).run();
+    ctx.db
+      .delete(projects)
+      .where(and(eq(projects.id, id), userScope(projects, ctx.userId)))
+      .run();
     emit(ctx.userId, 'project', id, 'deleted', {});
   },
 };

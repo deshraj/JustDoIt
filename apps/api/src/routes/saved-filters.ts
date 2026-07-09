@@ -4,11 +4,10 @@ import {
   savedFilterService,
   createSavedFilterSchema,
   updateSavedFilterSchema,
-  type Db,
 } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function savedFilterRoutes(db: Db): Hono<AppEnv> {
+export function savedFilterRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/saved-filters', (c) => c.json({ savedFilters: savedFilterService.list(c.var.ctx) }));

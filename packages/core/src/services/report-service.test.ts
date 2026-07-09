@@ -49,11 +49,7 @@ describe('reportService.timeReport', () => {
   });
 
   it('respects the from/to window on startedAt', () => {
-    const [t] = db
-      .insert(tasks)
-      .values({ userId: LOCAL_USER_ID, title: 'A' })
-      .returning()
-      .all();
+    const [t] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'A' }).returning().all();
     timeService.logManual(
       ctx,
       { taskId: t!.id, startedAt: D1_0900, durationSeconds: 3600 },
@@ -109,16 +105,8 @@ describe('reportService.timeReport', () => {
   });
 
   it('groups by tag, double-counting multi-tag tasks', () => {
-    const [t] = db
-      .insert(tasks)
-      .values({ userId: LOCAL_USER_ID, title: 'A' })
-      .returning()
-      .all();
-    const [red] = db
-      .insert(tags)
-      .values({ userId: LOCAL_USER_ID, name: 'red' })
-      .returning()
-      .all();
+    const [t] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'A' }).returning().all();
+    const [red] = db.insert(tags).values({ userId: LOCAL_USER_ID, name: 'red' }).returning().all();
     const [blue] = db
       .insert(tags)
       .values({ userId: LOCAL_USER_ID, name: 'blue' })
@@ -163,8 +151,16 @@ describe('reportService.timeReport', () => {
     const b: Ctx = { db, userId: 'user-b' };
     const aTask = taskService.create(ctx, { title: 'A task' });
     const bTask = taskService.create(b, { title: 'B task' });
-    timeService.logManual(ctx, { taskId: aTask.id, startedAt: D1_0900, durationSeconds: 60 }, D1_0900);
-    timeService.logManual(b, { taskId: bTask.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
+    timeService.logManual(
+      ctx,
+      { taskId: aTask.id, startedAt: D1_0900, durationSeconds: 60 },
+      D1_0900,
+    );
+    timeService.logManual(
+      b,
+      { taskId: bTask.id, startedAt: D1_0900, durationSeconds: 3600 },
+      D1_0900,
+    );
 
     const report = reportService.timeReport(ctx, { groupBy: 'day' });
     expect(report.totalSeconds).toBe(60);

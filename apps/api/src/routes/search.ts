@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { taskService, ValidationError, type Db } from '@justdoit/core';
+import { taskService, ValidationError } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function searchRoutes(db: Db): Hono<AppEnv> {
+export function searchRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
   r.get('/search', (c) => {
     const q = c.req.query('q');

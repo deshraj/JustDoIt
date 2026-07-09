@@ -17,11 +17,7 @@ function ctxFor(db: Db, userId: string): Ctx {
 }
 
 function seedTask(db: Db, title = 'Task A'): string {
-  const [t] = db
-    .insert(tasks)
-    .values({ userId: LOCAL_USER_ID, title })
-    .returning()
-    .all();
+  const [t] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title }).returning().all();
   return t!.id;
 }
 
@@ -214,10 +210,11 @@ describe('timeService manual entries & management', () => {
       expect(() =>
         timeService.logManual(a, { taskId: bTask.id, startedAt: new Date(), durationSeconds: 60 }),
       ).toThrow(NotFoundError);
-      const bEntry = timeService.logManual(
-        b,
-        { taskId: bTask.id, startedAt: new Date(), durationSeconds: 60 },
-      );
+      const bEntry = timeService.logManual(b, {
+        taskId: bTask.id,
+        startedAt: new Date(),
+        durationSeconds: 60,
+      });
       expect(timeService.listEntries(a).map((e) => e.id)).not.toContain(bEntry.id);
       expect(() => timeService.stopTimer(a, { entryId: bEntry.id })).toThrow(NotFoundError);
       expect(() => timeService.deleteEntry(a, bEntry.id)).toThrow(NotFoundError);

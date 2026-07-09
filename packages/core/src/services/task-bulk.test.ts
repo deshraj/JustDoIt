@@ -67,9 +67,9 @@ describe('taskService.bulkUpdate / bulkDelete', () => {
     it('bulkUpdate rejects when an id belongs to B', () => {
       const bTask = taskService.create(b, { title: 'B' });
       const aTask = taskService.create(a, { title: 'A' });
-      expect(() =>
-        taskService.bulkUpdate(a, [aTask.id, bTask.id], { status: 'done' }),
-      ).toThrow(NotFoundError);
+      expect(() => taskService.bulkUpdate(a, [aTask.id, bTask.id], { status: 'done' })).toThrow(
+        NotFoundError,
+      );
       expect(taskService.get(b, bTask.id).status).toBe('todo'); // untouched
     });
 

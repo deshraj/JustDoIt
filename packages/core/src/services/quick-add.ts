@@ -128,7 +128,9 @@ export const quickAddService = {
         .from(projects)
         .where(and(userScope(projects, ctx.userId), eq(projects.name, parsed.projectName)))
         .get();
-      projectId = existing ? existing.id : projectService.create(ctx, { name: parsed.projectName }).id;
+      projectId = existing
+        ? existing.id
+        : projectService.create(ctx, { name: parsed.projectName }).id;
     }
 
     const task = taskService.create(ctx, {

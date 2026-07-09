@@ -82,9 +82,9 @@ describe('exportService', () => {
     const snap = exportService.exportSnapshot(ctx);
     const target = freshDb();
     const targetCtx = ctxFor(target, LOCAL_USER_ID);
-    expect(() =>
-      exportService.importSnapshot(targetCtx, { ...snap, version: 2 } as never),
-    ).toThrow(ValidationError);
+    expect(() => exportService.importSnapshot(targetCtx, { ...snap, version: 2 } as never)).toThrow(
+      ValidationError,
+    );
   });
 
   describe('cross-tenant isolation', () => {

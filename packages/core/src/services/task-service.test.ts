@@ -34,9 +34,7 @@ describe('taskService', () => {
   });
 
   it('rejects a task pointing at a non-existent project', () => {
-    expect(() => taskService.create(ctx, { title: 'x', projectId: 'nope' })).toThrow(
-      NotFoundError,
-    );
+    expect(() => taskService.create(ctx, { title: 'x', projectId: 'nope' })).toThrow(NotFoundError);
   });
 
   it('assigns increasing positions within a scope', () => {

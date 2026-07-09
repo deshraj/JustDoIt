@@ -75,10 +75,22 @@ export const exportService = {
         .innerJoin(tasks, eq(taskTags.taskId, tasks.id))
         .where(userScope(tasks, ctx.userId))
         .all(),
-      timeEntries: ctx.db.select().from(timeEntries).where(userScope(timeEntries, ctx.userId)).all(),
+      timeEntries: ctx.db
+        .select()
+        .from(timeEntries)
+        .where(userScope(timeEntries, ctx.userId))
+        .all(),
       reminders: ctx.db.select().from(reminders).where(userScope(reminders, ctx.userId)).all(),
-      activityLog: ctx.db.select().from(activityLog).where(userScope(activityLog, ctx.userId)).all(),
-      attachments: ctx.db.select().from(attachments).where(userScope(attachments, ctx.userId)).all(),
+      activityLog: ctx.db
+        .select()
+        .from(activityLog)
+        .where(userScope(activityLog, ctx.userId))
+        .all(),
+      attachments: ctx.db
+        .select()
+        .from(attachments)
+        .where(userScope(attachments, ctx.userId))
+        .all(),
       savedFilters: ctx.db
         .select()
         .from(savedFilters)

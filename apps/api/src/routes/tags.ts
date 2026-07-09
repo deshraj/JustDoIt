@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { tagService, createTagSchema, updateTagSchema, type Db } from '@justdoit/core';
+import { tagService, createTagSchema, updateTagSchema } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function tagRoutes(db: Db): Hono<AppEnv> {
+export function tagRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/', (c) => c.json(tagService.list(c.var.ctx)));

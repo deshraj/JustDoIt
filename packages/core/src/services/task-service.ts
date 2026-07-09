@@ -199,7 +199,10 @@ export const taskService = {
 
   remove(ctx: Ctx, id: string): void {
     taskService.get(ctx, id);
-    ctx.db.delete(tasks).where(and(eq(tasks.id, id), userScope(tasks, ctx.userId))).run();
+    ctx.db
+      .delete(tasks)
+      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId)))
+      .run();
     emit(ctx.userId, 'task', id, 'deleted', {});
   },
 

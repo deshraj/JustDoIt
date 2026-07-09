@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
-import { exportService, type Db, type Snapshot } from '@justdoit/core';
+import { exportService, type Snapshot } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function transferRoutes(db: Db): Hono<AppEnv> {
+export function transferRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/export', (c) => c.json(exportService.exportSnapshot(c.var.ctx)));

@@ -60,7 +60,12 @@ export function listUpcoming(ctx: Ctx, now: Date, days = 7): Task[] {
     .select()
     .from(tasks)
     .where(
-      and(userScope(tasks, ctx.userId), gt(tasks.dueAt, now), lte(tasks.dueAt, end), activeAndDue()),
+      and(
+        userScope(tasks, ctx.userId),
+        gt(tasks.dueAt, now),
+        lte(tasks.dueAt, end),
+        activeAndDue(),
+      ),
     )
     .orderBy(asc(tasks.dueAt))
     .all();

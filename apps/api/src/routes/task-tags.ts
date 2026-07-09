@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { taskService, tagService, type Db } from '@justdoit/core';
+import { taskService, tagService } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
 const attachBody = z.object({ tagId: z.string().min(1) });
@@ -13,7 +13,7 @@ const attachBody = z.object({ tagId: z.string().min(1) });
  * TagPicker (Phase 5, Task 5) can read and edit a task's tags like any other
  * field, instead of only being able to create tags in the abstract.
  */
-export function taskTagRoutes(db: Db): Hono<AppEnv> {
+export function taskTagRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/tasks/:id/tags', (c) => {

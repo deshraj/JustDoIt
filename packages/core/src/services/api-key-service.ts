@@ -45,7 +45,11 @@ export const apiKeyService = {
 
   /** Resolve a raw token to its owner id (or null), stamping last_used_at on hit. */
   resolveToken(db: Db, rawToken: string, now: Date = new Date()): string | null {
-    const row = db.select().from(apiKeys).where(eq(apiKeys.tokenHash, hashToken(rawToken))).get();
+    const row = db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.tokenHash, hashToken(rawToken)))
+      .get();
     if (!row) return null;
     db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, row.id)).run();
     return row.userId;

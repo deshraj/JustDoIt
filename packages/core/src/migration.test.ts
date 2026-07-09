@@ -39,8 +39,7 @@ describe('0001 multitenancy migration', () => {
 
     // Local user exists.
     const u = sqlite.prepare(`SELECT id, name FROM users WHERE id = 'local-user'`).get() as
-      | { id: string; name: string }
-      | undefined;
+      { id: string; name: string } | undefined;
     expect(u?.id).toBe('local-user');
 
     // Existing rows are backfilled.

@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
-import { projectService, createProjectSchema, updateProjectSchema, type Db } from '@justdoit/core';
+import { projectService, createProjectSchema, updateProjectSchema } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
-export function projectRoutes(db: Db): Hono<AppEnv> {
+export function projectRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/', (c) => {

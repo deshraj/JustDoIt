@@ -13,7 +13,6 @@ import {
   TASK_STATUSES,
   TASK_PRIORITIES,
   ValidationError,
-  type Db,
   type TaskListFilters,
   type TaskStatus,
   type TaskPriority,
@@ -75,7 +74,7 @@ function parseFilters(query: Record<string, string>, valid: ListQuery): TaskList
   return filters;
 }
 
-export function taskRoutes(db: Db): Hono<AppEnv> {
+export function taskRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/', (c) => {

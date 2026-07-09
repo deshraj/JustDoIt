@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createDb, runMigrations, tasks, timeService, LOCAL_USER_ID, type Db } from '@justdoit/core';
+import {
+  createDb,
+  runMigrations,
+  tasks,
+  timeService,
+  LOCAL_USER_ID,
+  type Db,
+} from '@justdoit/core';
 import { createApp } from '../app';
 
 interface TimeReportBucketJson {
@@ -68,11 +75,7 @@ describe('GET /reports/time', () => {
   });
 
   it('honors the from window', async () => {
-    const [t] = db
-      .insert(tasks)
-      .values({ userId: LOCAL_USER_ID, title: 'A' })
-      .returning()
-      .all();
+    const [t] = db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'A' }).returning().all();
     timeService.logManual(
       { db, userId: LOCAL_USER_ID },
       { taskId: t!.id, startedAt: new Date('2026-07-08T09:00:00.000Z'), durationSeconds: 600 },

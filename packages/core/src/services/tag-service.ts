@@ -47,7 +47,12 @@ export const tagService = {
   },
 
   list(ctx: Ctx): Tag[] {
-    return ctx.db.select().from(tags).where(userScope(tags, ctx.userId)).orderBy(asc(tags.name)).all();
+    return ctx.db
+      .select()
+      .from(tags)
+      .where(userScope(tags, ctx.userId))
+      .orderBy(asc(tags.name))
+      .all();
   },
 
   update(ctx: Ctx, id: string, patch: UpdateTagInput): Tag {
@@ -72,7 +77,10 @@ export const tagService = {
 
   remove(ctx: Ctx, id: string): void {
     tagService.get(ctx, id);
-    ctx.db.delete(tags).where(and(eq(tags.id, id), userScope(tags, ctx.userId))).run();
+    ctx.db
+      .delete(tags)
+      .where(and(eq(tags.id, id), userScope(tags, ctx.userId)))
+      .run();
   },
 
   attach(ctx: Ctx, taskId: string, tagId: string): void {

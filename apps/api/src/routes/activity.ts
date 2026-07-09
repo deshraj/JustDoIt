@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { activityService, ValidationError, type Db } from '@justdoit/core';
+import { activityService, ValidationError } from '@justdoit/core';
 import type { AppEnv } from '../context';
 
 const ENTITY_TYPES = ['task', 'project', 'time_entry'] as const;
@@ -26,7 +26,7 @@ const querySchema = z
     return { entityType: q.entityType, entityId: q.entityId, limit: q.limit };
   });
 
-export function activityRoutes(db: Db): Hono<AppEnv> {
+export function activityRoutes(): Hono<AppEnv> {
   const r = new Hono<AppEnv>();
 
   r.get('/activity', (c) => {

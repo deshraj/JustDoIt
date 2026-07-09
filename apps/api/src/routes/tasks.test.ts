@@ -157,9 +157,7 @@ describe('tasks routes', () => {
         position: 5,
       })
       .run();
-    db.insert(tasks)
-      .values({ userId: LOCAL_USER_ID, title: 'no due date', position: 6 })
-      .run();
+    db.insert(tasks).values({ userId: LOCAL_USER_ID, title: 'no due date', position: 6 }).run();
 
     const res = await a.request('/tasks?due_from=2026-03-01&due_to=2026-03-31');
     const body = (await res.json()) as TaskJson[];
