@@ -7,6 +7,7 @@ import type { AppEnv } from './context';
 import { healthRoutes } from './routes/health';
 import { internalRoutes } from './routes/internal';
 import { apiKeyRoutes } from './routes/api-keys';
+import { mcpRoutes } from './routes/mcp';
 import { projectRoutes } from './routes/projects';
 import { tagRoutes } from './routes/tags';
 import { taskRoutes } from './routes/tasks';
@@ -68,7 +69,15 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
     cors({
       origin: resolveCorsOrigin(opts),
       allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Content-Type', 'X-API-Key', 'X-Internal-Key', 'X-User-Id'],
+      allowHeaders: [
+        'Content-Type',
+        'X-API-Key',
+        'X-Internal-Key',
+        'X-User-Id',
+        'mcp-session-id',
+        'mcp-protocol-version',
+      ],
+      exposeHeaders: ['mcp-session-id', 'mcp-protocol-version'],
     }),
   );
 
@@ -95,6 +104,9 @@ export function createApp(db: Db, opts: CreateAppOptions = {}): Hono<AppEnv> {
   app.route('/', eventsRoutes());
   app.route('/', savedFilterRoutes());
   app.route('/api-keys', apiKeyRoutes());
+  // Key-gated MCP streamable-HTTP surface for external agents; identity comes
+  // from the same resolveUser ladder (X-API-Key owner, or local-user).
+  app.route('/mcp', mcpRoutes());
   const filesDir = opts.filesDir ?? process.env.JUSTDOIT_FILES_DIR ?? './data/files';
   app.route('/', attachmentRoutes(db, filesDir));
   return app;

@@ -1,21 +1,13 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  timeService,
-  reportService,
-  timeReportQuerySchema,
-  LOCAL_USER_ID,
-  type Ctx,
-  type Db,
-} from '@justdoit/core';
+import { timeService, reportService, timeReportQuerySchema, type Ctx } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
 // Restrict to string/number/Date so a bare `null` is rejected rather than
 // silently coerced to 1970-01-01 by `z.coerce.date()` (`new Date(null)`).
 const isoDate = z.union([z.string(), z.number(), z.date()]).pipe(z.coerce.date());
 
-export function registerTimeTools(server: McpServer, db: Db): void {
-  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+export function registerTimeTools(server: McpServer, ctx: Ctx): void {
 
   server.registerTool(
     'start_timer',

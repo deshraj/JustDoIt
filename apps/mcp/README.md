@@ -1,19 +1,19 @@
 # @justdoit/mcp
 
-MCP server exposing justdoit tasks over `@justdoit/core` (in-process).
+MCP server exposing justdoit tasks over `@justdoit/core` (in-process). This
+package ships a **local-stdio entrypoint only** — `createMcpServer(ctx)` is
+also reused by the key-gated, per-user `/mcp` streamable-HTTP route served by
+`apps/api` (see its README), which is how hosted/remote agents connect.
 
 ## Run
 
-- **stdio** (default): `JUSTDOIT_DB=./justdoit.db pnpm --filter @justdoit/mcp start`
-- **HTTP**: `JUSTDOIT_DB=./justdoit.db JUSTDOIT_MCP_PORT=3939 JUSTDOIT_API_KEY=secret pnpm --filter @justdoit/mcp start:http`
+- **stdio** (default, local use): `JUSTDOIT_DB=./justdoit.db pnpm --filter @justdoit/mcp start`
 
 ## Environment
 
-| Var                 | Default       | Purpose                                                                             |
-| ------------------- | ------------- | ----------------------------------------------------------------------------------- |
-| `JUSTDOIT_DB`       | `justdoit.db` | SQLite file path                                                                    |
-| `JUSTDOIT_API_KEY`  | _(unset)_     | If set, HTTP transport requires `Authorization: Bearer <key>` or `X-API-Key: <key>` |
-| `JUSTDOIT_MCP_PORT` | `3939`        | HTTP transport port                                                                 |
+| Var           | Default       | Purpose           |
+| ------------- | ------------- | ------------------ |
+| `JUSTDOIT_DB` | `justdoit.db` | SQLite file path   |
 
 ## Register in an agent harness (stdio)
 
@@ -47,9 +47,11 @@ If `tsx` is not on PATH, use `pnpm`:
 }
 ```
 
-## Register over HTTP
+## Register over HTTP (hosted)
 
-Point an HTTP-capable MCP client at `http://localhost:3939` and send `Authorization: Bearer <JUSTDOIT_API_KEY>` if auth is enabled.
+There is no standalone hosted `mcp` service. Remote/hosted agents point an
+HTTP-capable MCP client at `https://<api-domain>/mcp` and send a per-user
+`X-API-Key` (minted from the web app's Settings screen) — see `apps/api`.
 
 ## Tools, resources, prompts
 

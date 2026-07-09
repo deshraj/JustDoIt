@@ -176,11 +176,11 @@ Register it in your agent's MCP config (e.g. Claude Code's `mcpServers`):
 **Resources:** `task://{id}`, `project://{id}`, `tasks://today`, `tasks://overdue`.
 **Prompts:** `plan_my_day`, `summarize_progress`.
 
-There's also a streamable-HTTP transport for remote/managed setups:
-
-```bash
-pnpm --filter @justdoit/mcp start:http   # honors JUSTDOIT_MCP_PORT and JUSTDOIT_API_KEY
-```
+`apps/mcp` ships a local-stdio entrypoint only. Remote/hosted agents instead
+reach a key-gated streamable-HTTP `/mcp` route served by `apps/api` itself
+(`createMcpServer(ctx)` is shared between the two), authenticated with a
+per-user API key minted from the web app's Settings screen — not a single
+shared secret.
 
 ---
 
@@ -193,12 +193,12 @@ All configuration is via environment variables.
 | `JUSTDOIT_DB`                | `justdoit.db`                                 | Path to the SQLite database file (use `:memory:` for a throwaway DB).                                            |
 | `JUSTDOIT_API_PORT`          | `8787`                                        | Port for the REST API.                                                                                           |
 | `JUSTDOIT_API_HOST`          | `127.0.0.1`                                   | Host the REST API binds to.                                                                                      |
-| `JUSTDOIT_API_KEY`           | _(unset)_                                     | If set, the REST API and MCP HTTP transport require a matching `X-API-Key` header. Unset = open (localhost dev). |
+| `JUSTDOIT_MODE`              | `local`                                       | `local` (zero-login, `local-user`) or `hosted` (requires a resolved identity on every request).                 |
+| `INTERNAL_API_SECRET`        | _(unset)_                                     | Shared secret the web proxy sends as `X-Internal-Key`; required in hosted mode.                                  |
 | `JUSTDOIT_CORS_ORIGIN`       | `http://localhost:3000,http://localhost:8787` | Allowed CORS origins for the API.                                                                                |
 | `JUSTDOIT_FILES_DIR`         | `./data/files`                                | Where task attachments are stored.                                                                               |
 | `JUSTDOIT_DISABLE_SCHEDULER` | _(unset)_                                     | Set to `1` to disable the reminder scheduler / desktop notifications.                                            |
-| `JUSTDOIT_MCP_PORT`          | `8788`                                        | Port for the MCP streamable-HTTP transport.                                                                      |
-| `NEXT_PUBLIC_API_URL`        | `http://localhost:8787`                       | Web UI → REST API base URL.                                                                                      |
+| `NEXT_PUBLIC_API_URL`        | `http://localhost:8787`                       | Web UI → REST API base URL (`/api/backend` in hosted mode, via the same-origin proxy).                          |
 
 ---
 

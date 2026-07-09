@@ -1,14 +1,6 @@
 import { ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  taskService,
-  projectService,
-  listOverdue,
-  listDueToday,
-  LOCAL_USER_ID,
-  type Ctx,
-  type Db,
-} from '@justdoit/core';
+import { taskService, projectService, listOverdue, listDueToday, type Ctx } from '@justdoit/core';
 
 function jsonContents(uri: string, value: unknown) {
   return {
@@ -16,9 +8,7 @@ function jsonContents(uri: string, value: unknown) {
   };
 }
 
-export function registerResources(server: McpServer, db: Db): void {
-  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
-
+export function registerResources(server: McpServer, ctx: Ctx): void {
   server.registerResource(
     'task',
     new ResourceTemplate('task://{id}', { list: undefined }),

@@ -9,9 +9,7 @@ import {
   listUpcoming,
   TASK_STATUSES,
   TASK_PRIORITIES,
-  LOCAL_USER_ID,
   type Ctx,
-  type Db,
   type Task,
   type TaskListFilters,
 } from '@justdoit/core';
@@ -69,9 +67,7 @@ function applyLimit(rows: Task[], limit: number | undefined): Task[] {
   return limit === undefined ? rows : rows.slice(0, limit);
 }
 
-export function registerTaskTools(server: McpServer, db: Db): void {
-  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
-
+export function registerTaskTools(server: McpServer, ctx: Ctx): void {
   server.registerTool(
     'create_task',
     {

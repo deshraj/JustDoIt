@@ -41,6 +41,12 @@ importers:
       '@justdoit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@justdoit/mcp':
+        specifier: workspace:*
+        version: link:../mcp
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.12.0
+        version: 1.29.0(zod@3.25.76)
       hono:
         specifier: ^4.6.14
         version: 4.12.28

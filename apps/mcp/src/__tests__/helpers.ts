@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { createDb, runMigrations, type Db } from '@justdoit/core';
+import { createDb, runMigrations, LOCAL_USER_ID, type Db } from '@justdoit/core';
 import { createMcpServer } from '../server.js';
 
 export function freshDb(): Db {
@@ -11,7 +11,7 @@ export function freshDb(): Db {
 
 /** Link a Client to a fresh justdoit server over an in-memory transport pair. */
 export async function makeClient(db: Db) {
-  const server = createMcpServer(db);
+  const server = createMcpServer({ db, userId: LOCAL_USER_ID });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0.0.0' });
   await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);

@@ -1,18 +1,9 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  LOCAL_USER_ID,
-  projectService,
-  tagService,
-  taskService,
-  type Ctx,
-  type Db,
-} from '@justdoit/core';
+import { projectService, tagService, taskService, type Ctx } from '@justdoit/core';
 import { guard } from '../helpers.js';
 
-export function registerProjectTools(server: McpServer, db: Db): void {
-  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
-
+export function registerProjectTools(server: McpServer, ctx: Ctx): void {
   server.registerTool(
     'create_project',
     {

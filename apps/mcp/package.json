@@ -3,13 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./src/server.ts",
+  "exports": {
+    ".": "./src/server.ts"
+  },
   "bin": {
     "justdoit-mcp": "./src/stdio.ts"
   },
   "scripts": {
     "dev": "tsx watch src/stdio.ts",
     "start": "tsx src/stdio.ts",
-    "start:http": "tsx src/http.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
