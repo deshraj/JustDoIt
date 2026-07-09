@@ -33,6 +33,13 @@ export function shouldRedirect(
 }
 
 export function resolveApiBase(env: Env = process.env): string {
-  const base = env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8787';
-  return base.replace(/\/$/, '');
+  // Explicit override (inlined at build time via NEXT_PUBLIC_API_URL) wins.
+  if (env.NEXT_PUBLIC_API_URL) return env.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+  // In the browser on a hosted (non-localhost) origin, always use the
+  // same-origin proxy so we never hit CORS regardless of build-time env.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') return '/api/backend';
+  }
+  return 'http://localhost:8787';
 }
