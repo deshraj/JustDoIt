@@ -75,6 +75,6 @@ export function registerTimeTools(server: McpServer, db: Db): void {
       description: 'Aggregate tracked time grouped by day, project, or tag.',
       inputSchema: timeReportQuerySchema.shape,
     },
-    (opts) => guard(() => reportService.timeReport(db, opts)),
+    (opts) => guard(() => reportService.timeReport(ctx, opts)),
   );
 }

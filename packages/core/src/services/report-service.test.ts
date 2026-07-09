@@ -3,6 +3,8 @@ import { createDb, runMigrations, type Db } from '../db';
 import { projects, tags, taskTags, tasks } from '../db/schema';
 import { timeService } from './time-service';
 import { reportService } from './report-service';
+import { taskService } from './task-service';
+import { userService } from './user-service';
 import { LOCAL_USER_ID } from '../constants';
 import type { Ctx } from '../context';
 
@@ -34,7 +36,7 @@ describe('reportService.timeReport', () => {
     // A running timer must NOT be counted.
     timeService.startTimer(ctx, t!.id, D2_0900);
 
-    const report = reportService.timeReport(db, { groupBy: 'day' });
+    const report = reportService.timeReport(ctx, { groupBy: 'day' });
     expect(report.totalSeconds).toBe(5400);
     expect(report.buckets).toEqual([
       { key: '2026-07-08', label: '2026-07-08', totalSeconds: 3600, entryCount: 1 },
@@ -54,7 +56,7 @@ describe('reportService.timeReport', () => {
       { taskId: t!.id, startedAt: D2_0900, durationSeconds: 1800 },
       D2_0900,
     );
-    const report = reportService.timeReport(db, {
+    const report = reportService.timeReport(ctx, {
       groupBy: 'day',
       from: new Date('2026-07-09T00:00:00.000Z'),
     });
@@ -80,7 +82,7 @@ describe('reportService.timeReport', () => {
       D1_0900,
     );
 
-    const report = reportService.timeReport(db, { groupBy: 'project' });
+    const report = reportService.timeReport(ctx, { groupBy: 'project' });
     expect(report.buckets[0]).toEqual({
       key: proj!.id,
       label: 'Work',
@@ -102,7 +104,7 @@ describe('reportService.timeReport', () => {
       D1_0900,
     );
 
-    const report = reportService.timeReport(db, { groupBy: 'tag' });
+    const report = reportService.timeReport(ctx, { groupBy: 'tag' });
     expect(report.totalSeconds).toBe(3600); // grand total counts the entry once
     const byKey = Object.fromEntries(report.buckets.map((b) => [b.label, b.totalSeconds]));
     expect(byKey).toEqual({ red: 3600, blue: 3600 }); // each tag bucket gets the full duration
@@ -111,7 +113,7 @@ describe('reportService.timeReport', () => {
   it('computes estimate vs actual with variance', () => {
     const [t] = db.insert(tasks).values({ title: 'A', estimateMinutes: 30 }).returning().all();
     timeService.logManual(ctx, { taskId: t!.id, startedAt: D1_0900, endedAt: D1_1000 }, D1_0900);
-    const report = reportService.timeReport(db, { groupBy: 'day' });
+    const report = reportService.timeReport(ctx, { groupBy: 'day' });
     expect(report.estimateVsActual).toEqual([
       {
         taskId: t!.id,
@@ -122,5 +124,18 @@ describe('reportService.timeReport', () => {
         varianceMinutes: 30,
       },
     ]);
+  });
+
+  it('report totals exclude B time', () => {
+    userService.create(db, { id: 'user-b', name: 'B' });
+    const b: Ctx = { db, userId: 'user-b' };
+    const aTask = taskService.create(ctx, { title: 'A task' });
+    const bTask = taskService.create(b, { title: 'B task' });
+    timeService.logManual(ctx, { taskId: aTask.id, startedAt: D1_0900, durationSeconds: 60 }, D1_0900);
+    timeService.logManual(b, { taskId: bTask.id, startedAt: D1_0900, durationSeconds: 3600 }, D1_0900);
+
+    const report = reportService.timeReport(ctx, { groupBy: 'day' });
+    expect(report.totalSeconds).toBe(60);
+    expect(report.estimateVsActual.every((e) => e.taskId !== bTask.id)).toBe(true);
   });
 });
