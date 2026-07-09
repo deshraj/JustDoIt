@@ -6,6 +6,7 @@ import { createDb, runMigrations } from '../db/client';
 import { NotFoundError, ValidationError } from '../errors';
 import { taskService } from './task-service';
 import { attachmentService } from './attachment-service';
+import { LOCAL_USER_ID } from '../constants';
 
 const dirs: string[] = [];
 async function filesDir() {
@@ -22,7 +23,7 @@ describe('attachmentService', () => {
     const { db } = createDb(':memory:');
     runMigrations(db);
     const fdir = await filesDir();
-    const task = taskService.create(db, { title: 'With file' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'With file' });
 
     const rec = await attachmentService.add(
       db,
@@ -45,7 +46,7 @@ describe('attachmentService', () => {
     const { db } = createDb(':memory:');
     runMigrations(db);
     const fdir = await filesDir();
-    const task = taskService.create(db, { title: 'T' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'T' });
     await expect(
       attachmentService.add(
         db,
@@ -77,7 +78,7 @@ describe('attachmentService', () => {
     const { db } = createDb(':memory:');
     runMigrations(db);
     const fdir = await filesDir();
-    const task = taskService.create(db, { title: 'T' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'T' });
     const rec = await attachmentService.add(
       db,
       { taskId: task.id, filename: 'x.txt', mime: 'text/plain', data: new Uint8Array([1]) },

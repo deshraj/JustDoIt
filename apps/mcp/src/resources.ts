@@ -6,6 +6,7 @@ import {
   listOverdue,
   listDueToday,
   LOCAL_USER_ID,
+  type Ctx,
   type Db,
 } from '@justdoit/core';
 
@@ -16,26 +17,27 @@ function jsonContents(uri: string, value: unknown) {
 }
 
 export function registerResources(server: McpServer, db: Db): void {
+  const ctx: Ctx = { db, userId: LOCAL_USER_ID };
+
   server.registerResource(
     'task',
     new ResourceTemplate('task://{id}', { list: undefined }),
     { title: 'Task', description: 'A single task by id', mimeType: 'application/json' },
-    async (uri, { id }) => jsonContents(uri.href, taskService.get(db, String(id))),
+    async (uri, { id }) => jsonContents(uri.href, taskService.get(ctx, String(id))),
   );
 
   server.registerResource(
     'project',
     new ResourceTemplate('project://{id}', { list: undefined }),
     { title: 'Project', description: 'A single project by id', mimeType: 'application/json' },
-    async (uri, { id }) =>
-      jsonContents(uri.href, projectService.get({ db, userId: LOCAL_USER_ID }, String(id))),
+    async (uri, { id }) => jsonContents(uri.href, projectService.get(ctx, String(id))),
   );
 
   server.registerResource(
     'tasks-today',
     'tasks://today',
     { title: "Today's tasks", description: 'Active tasks due today', mimeType: 'application/json' },
-    async (uri) => jsonContents(uri.href, listDueToday(db, new Date())),
+    async (uri) => jsonContents(uri.href, listDueToday(ctx, new Date())),
   );
 
   server.registerResource(
@@ -46,6 +48,6 @@ export function registerResources(server: McpServer, db: Db): void {
       description: 'Incomplete tasks past their due date',
       mimeType: 'application/json',
     },
-    async (uri) => jsonContents(uri.href, listOverdue(db, new Date())),
+    async (uri) => jsonContents(uri.href, listOverdue(ctx, new Date())),
   );
 }

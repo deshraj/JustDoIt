@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createDb, runMigrations, taskService } from '@justdoit/core';
+import { createDb, runMigrations, taskService, LOCAL_USER_ID } from '@justdoit/core';
 import { createApp } from '../app';
 
 interface ActivityEntryJson {
@@ -17,7 +17,7 @@ function app() {
 describe('GET /activity', () => {
   it('returns activity for a task via entity=task:<id>', async () => {
     const { db, app: a } = app();
-    const task = taskService.create(db, { title: 'X' });
+    const task = taskService.create({ db, userId: LOCAL_USER_ID }, { title: 'X' });
     const res = await a.request(`/activity?entity=task:${task.id}`);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { activity: ActivityEntryJson[] };

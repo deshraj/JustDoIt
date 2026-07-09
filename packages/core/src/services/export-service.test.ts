@@ -14,9 +14,10 @@ function freshDb(): Db {
 }
 
 function seed(db: Db): void {
-  const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'Work' });
-  const parent = taskService.create(db, { title: 'parent', projectId: proj.id });
-  taskService.addSubtask(db, parent.id, { title: 'child' });
+  const ctx = { db, userId: LOCAL_USER_ID };
+  const proj = projectService.create(ctx, { name: 'Work' });
+  const parent = taskService.create(ctx, { title: 'parent', projectId: proj.id });
+  taskService.addSubtask(ctx, parent.id, { title: 'child' });
   const tag = tagService.create(db, { name: 'focus' });
   tagService.attach(db, parent.id, tag.id);
 }
@@ -51,7 +52,9 @@ describe('exportService', () => {
     expect(roundTripped.tasks).toHaveLength(2);
     expect(roundTripped.taskTags).toHaveLength(1);
     // Dates survive as Dates after import.
-    expect(taskService.list(target)[0]!.createdAt).toBeInstanceOf(Date);
+    expect(taskService.list({ db: target, userId: LOCAL_USER_ID })[0]!.createdAt).toBeInstanceOf(
+      Date,
+    );
   });
 
   it('import replaces existing data', () => {

@@ -19,6 +19,8 @@ import { assertValidWindow, spawnNextRecurrence } from './schedule-service';
 import { assertValidRecurrence } from '../recurrence';
 import type { DueFilter } from '../schemas/schedule';
 import { emit } from '../events/emit';
+import { userScope } from '../scope';
+import type { Ctx } from '../context';
 import { LOCAL_USER_ID } from '../constants';
 
 export interface TaskListFilters {
@@ -52,12 +54,13 @@ export interface BulkPatch {
   removeTagIds?: string[];
 }
 
-function nextPosition(db: Db, projectId: string | null, parentTaskId: string | null): number {
-  const rows = db
+function nextPosition(ctx: Ctx, projectId: string | null, parentTaskId: string | null): number {
+  const rows = ctx.db
     .select({ position: tasks.position })
     .from(tasks)
     .where(
       and(
+        userScope(tasks, ctx.userId),
         projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, projectId),
         parentTaskId === null ? isNull(tasks.parentTaskId) : eq(tasks.parentTaskId, parentTaskId),
       ),
@@ -66,41 +69,49 @@ function nextPosition(db: Db, projectId: string | null, parentTaskId: string | n
   return rows.reduce((max, r) => Math.max(max, r.position), 0) + 1;
 }
 
-function requireProject(db: Db, projectId: string): void {
-  const row = db.select({ id: projects.id }).from(projects).where(eq(projects.id, projectId)).get();
+function requireProject(ctx: Ctx, projectId: string): void {
+  const row = ctx.db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), userScope(projects, ctx.userId)))
+    .get();
   if (!row) throw new NotFoundError('Project', projectId);
 }
 
 export const taskService = {
-  create(db: Db, input: CreateTaskInput): Task {
+  create(ctx: Ctx, input: CreateTaskInput): Task {
     const parsed = createTaskSchema.parse(input);
-    if (parsed.projectId) requireProject(db, parsed.projectId);
+    if (parsed.projectId) requireProject(ctx, parsed.projectId);
     if (parsed.parentTaskId) {
-      const parent = taskService.get(db, parsed.parentTaskId);
+      const parent = taskService.get(ctx, parsed.parentTaskId); // owned-or-404
       if (parent.parentTaskId) {
         throw new ConflictError('Subtasks may only be one level deep');
       }
     }
     assertValidWindow({ startAt: parsed.startAt ?? null, dueAt: parsed.dueAt ?? null });
     if (parsed.recurrence != null) assertValidRecurrence(parsed.recurrence);
-    const position = nextPosition(db, parsed.projectId ?? null, parsed.parentTaskId ?? null);
-    const [row] = db
+    const position = nextPosition(ctx, parsed.projectId ?? null, parsed.parentTaskId ?? null);
+    const [row] = ctx.db
       .insert(tasks)
-      .values({ ...parsed, position })
+      .values({ ...parsed, userId: ctx.userId, position })
       .returning()
       .all();
-    emit(LOCAL_USER_ID, 'task', row!.id, 'created', { title: row!.title });
+    emit(ctx.userId, 'task', row!.id, 'created', { title: row!.title });
     return row!;
   },
 
-  get(db: Db, id: string): Task {
-    const row = db.select().from(tasks).where(eq(tasks.id, id)).get();
+  get(ctx: Ctx, id: string): Task {
+    const row = ctx.db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId)))
+      .get();
     if (!row) throw new NotFoundError('Task', id);
     return row;
   },
 
-  list(db: Db, filters: TaskListFilters = {}): Task[] {
-    const conditions: SQL[] = [];
+  list(ctx: Ctx, filters: TaskListFilters = {}): Task[] {
+    const conditions: SQL[] = [userScope(tasks, ctx.userId)];
     if (filters.status) conditions.push(eq(tasks.status, filters.status));
     if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
     if (filters.projectId !== undefined) {
@@ -125,7 +136,7 @@ export const taskService = {
       conditions.push(or(like(tasks.title, needle), like(tasks.description, needle))!);
     }
     if (filters.tagId) {
-      const taskIds = db
+      const taskIds = ctx.db
         .select({ id: taskTags.taskId })
         .from(taskTags)
         .where(eq(taskTags.tagId, filters.tagId))
@@ -133,84 +144,86 @@ export const taskService = {
         .map((r) => r.id);
       conditions.push(inArray(tasks.id, taskIds.length ? taskIds : ['__none__']));
     }
-    return db
+    return ctx.db
       .select()
       .from(tasks)
-      .where(conditions.length ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(asc(tasks.position), asc(tasks.createdAt))
       .all();
   },
 
-  update(db: Db, id: string, patch: UpdateTaskInput): Task {
+  update(ctx: Ctx, id: string, patch: UpdateTaskInput): Task {
     const parsed = updateTaskSchema.parse(patch);
-    const existing = taskService.get(db, id);
-    if (parsed.projectId) requireProject(db, parsed.projectId);
+    const existing = taskService.get(ctx, id);
+    if (parsed.projectId) requireProject(ctx, parsed.projectId);
     assertValidWindow({
       startAt: 'startAt' in parsed ? (parsed.startAt ?? null) : existing.startAt,
       dueAt: 'dueAt' in parsed ? (parsed.dueAt ?? null) : existing.dueAt,
     });
     if (parsed.recurrence != null) assertValidRecurrence(parsed.recurrence);
-    const [row] = db
+    const [row] = ctx.db
       .update(tasks)
       .set({ ...parsed, updatedAt: new Date() })
-      .where(eq(tasks.id, id))
+      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId)))
       .returning()
       .all();
-    emit(LOCAL_USER_ID, 'task', row!.id, 'updated', { patch });
+    emit(ctx.userId, 'task', row!.id, 'updated', { patch });
     return row!;
   },
 
-  setStatus(db: Db, id: string, status: TaskStatus): Task {
-    const previous = taskService.get(db, id);
+  setStatus(ctx: Ctx, id: string, status: TaskStatus): Task {
+    const previous = taskService.get(ctx, id);
     const completedAt = status === 'done' || status === 'cancelled' ? new Date() : null;
-    const [row] = db
+    const [row] = ctx.db
       .update(tasks)
       .set({ status, completedAt, updatedAt: new Date() })
-      .where(eq(tasks.id, id))
+      .where(and(eq(tasks.id, id), userScope(tasks, ctx.userId)))
       .returning()
       .all();
-    emit(LOCAL_USER_ID, 'task', row!.id, 'status_changed', { from: previous.status, to: row!.status });
+    emit(ctx.userId, 'task', row!.id, 'status_changed', { from: previous.status, to: row!.status });
     return row!;
   },
 
-  complete(db: Db, id: string, now: Date = new Date()): Task {
+  complete(ctx: Ctx, id: string, now: Date = new Date()): Task {
     // Capture the pre-completion row so the recurrence anchor uses the
     // original recurrence/dueAt, not the post-completion state.
-    const task = taskService.get(db, id);
+    const task = taskService.get(ctx, id);
     // Idempotent: if the task is already terminal, do not re-transition or spawn
     // another recurrence — otherwise completing twice double-spawns occurrences.
     if (task.status === 'done' || task.status === 'cancelled') {
       return task;
     }
-    const completed = taskService.setStatus(db, id, 'done');
-    spawnNextRecurrence(db, task, now);
-    emit(LOCAL_USER_ID, 'task', completed.id, 'completed', {});
+    const completed = taskService.setStatus(ctx, id, 'done');
+    spawnNextRecurrence(ctx, task, now);
+    emit(ctx.userId, 'task', completed.id, 'completed', {});
     return completed;
   },
 
-  remove(db: Db, id: string): void {
-    taskService.get(db, id);
-    db.delete(tasks).where(eq(tasks.id, id)).run();
-    emit(LOCAL_USER_ID, 'task', id, 'deleted', {});
+  remove(ctx: Ctx, id: string): void {
+    taskService.get(ctx, id);
+    ctx.db.delete(tasks).where(and(eq(tasks.id, id), userScope(tasks, ctx.userId))).run();
+    emit(ctx.userId, 'task', id, 'deleted', {});
   },
 
-  addSubtask(db: Db, parentId: string, input: CreateTaskInput): Task {
-    const parent = taskService.get(db, parentId);
+  addSubtask(ctx: Ctx, parentId: string, input: CreateTaskInput): Task {
+    const parent = taskService.get(ctx, parentId);
     if (parent.parentTaskId) {
       throw new ConflictError('Subtasks may only be one level deep');
     }
-    return taskService.create(db, { ...input, parentTaskId: parentId });
+    return taskService.create(ctx, { ...input, parentTaskId: parentId });
   },
 
-  listSubtasks(db: Db, parentId: string): Task[] {
-    return db
+  listSubtasks(ctx: Ctx, parentId: string): Task[] {
+    return ctx.db
       .select()
       .from(tasks)
-      .where(eq(tasks.parentTaskId, parentId))
+      .where(and(userScope(tasks, ctx.userId), eq(tasks.parentTaskId, parentId)))
       .orderBy(asc(tasks.position), asc(tasks.createdAt))
       .all();
   },
 
+  // NOTE: bulkUpdate/bulkDelete are converted to Ctx in Task 6 (kept on a bare
+  // `db` here so the Task 5 boundary stays a minimal, reviewable diff).
   /** Apply the same patch to many tasks at once; emits per-task events so
    * activity log + SSE live sync stay accurate. All ids must exist. */
   bulkUpdate(db: Db, ids: string[], patch: BulkPatch): Task[] {

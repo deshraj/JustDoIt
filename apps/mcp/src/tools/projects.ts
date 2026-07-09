@@ -51,7 +51,7 @@ export function registerProjectTools(server: McpServer, db: Db): void {
         // Validate the task exists BEFORE creating any tag, so a missing task can't
         // orphan a freshly-created tag row (tagService.get/attach would throw only
         // after the tag was already inserted). NotFound propagates as an isError.
-        taskService.get(db, taskId);
+        taskService.get(ctx, taskId);
         // NOTE (deviation): `tagService.create` (Phase 1) throws `ConflictError` on a
         // duplicate `name` rather than upserting — the plan's draft assumed an
         // idempotent create. So this looks the tag up by name via `tagService.list`

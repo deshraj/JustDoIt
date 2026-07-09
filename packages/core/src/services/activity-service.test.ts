@@ -16,8 +16,8 @@ describe('activityService', () => {
     const stop = startActivityLog(db);
     const ctx: Ctx = { db, userId: LOCAL_USER_ID };
 
-    const task = taskService.create(db, { title: 'Write docs' });
-    taskService.setStatus(db, task.id, 'done');
+    const task = taskService.create(ctx, { title: 'Write docs' });
+    taskService.setStatus(ctx, task.id, 'done');
 
     const entries = activityService.list(ctx, { entityType: 'task', entityId: task.id });
     expect(entries.map((e) => e.action)).toEqual(['status_changed', 'created']); // newest first
@@ -34,7 +34,7 @@ describe('activityService', () => {
     const stop = startActivityLog(db);
     const ctx: Ctx = { db, userId: LOCAL_USER_ID };
     stop();
-    taskService.create(db, { title: 'Untracked' });
+    taskService.create(ctx, { title: 'Untracked' });
     expect(activityService.list(ctx)).toHaveLength(0);
   });
 
@@ -43,8 +43,8 @@ describe('activityService', () => {
     runMigrations(db);
     startActivityLog(db);
     const ctx: Ctx = { db, userId: LOCAL_USER_ID };
-    const a = taskService.create(db, { title: 'A' });
-    taskService.create(db, { title: 'B' });
+    const a = taskService.create(ctx, { title: 'A' });
+    taskService.create(ctx, { title: 'B' });
     expect(activityService.list(ctx, { entityId: a.id })).toHaveLength(1);
     expect(activityService.list(ctx, { limit: 1 })).toHaveLength(1);
   });
@@ -66,7 +66,7 @@ describe('activityService', () => {
       action: 'created',
       at: Date.now(),
     });
-    taskService.create(db, { title: 'A task' }); // stamped LOCAL_USER_ID by the emit placeholder
+    taskService.create(a, { title: 'A task' });
 
     expect(activityService.list(a).every((e) => e.entityId !== 'b-task')).toBe(true);
     expect(activityService.list(b).map((e) => e.entityId)).toEqual(['b-task']);

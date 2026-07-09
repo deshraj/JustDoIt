@@ -133,12 +133,15 @@ export const quickAddService = {
         : projectService.create({ db, userId: LOCAL_USER_ID }, { name: parsed.projectName }).id;
     }
 
-    const task = taskService.create(db, {
-      title: parsed.title,
-      priority: parsed.priority ?? null,
-      projectId: projectId ?? null,
-      dueAt: parsed.dueAt ?? null,
-    });
+    const task = taskService.create(
+      { db, userId: LOCAL_USER_ID },
+      {
+        title: parsed.title,
+        priority: parsed.priority ?? null,
+        projectId: projectId ?? null,
+        dueAt: parsed.dueAt ?? null,
+      },
+    );
 
     for (const name of parsed.tags) {
       const existing = db.select().from(tags).where(eq(tags.name, name)).get();
@@ -146,6 +149,6 @@ export const quickAddService = {
       tagService.attach(db, task.id, tag.id);
     }
 
-    return taskService.get(db, task.id);
+    return taskService.get({ db, userId: LOCAL_USER_ID }, task.id);
   },
 };
