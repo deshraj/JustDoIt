@@ -91,8 +91,8 @@ describe('taskService', () => {
   it('filters by tagId and free-text search', () => {
     const a = taskService.create(ctx, { title: 'buy milk', description: 'at the store' });
     taskService.create(ctx, { title: 'call bank' });
-    const tag = tagService.create(db, { name: 'errands' });
-    tagService.attach(db, a.id, tag.id);
+    const tag = tagService.create(ctx, { name: 'errands' });
+    tagService.attach(ctx, a.id, tag.id);
 
     expect(taskService.list(ctx, { tagId: tag.id }).map((t) => t.title)).toEqual(['buy milk']);
     expect(taskService.list(ctx, { search: 'milk' }).map((t) => t.title)).toEqual(['buy milk']);
@@ -197,13 +197,13 @@ describe('taskService', () => {
 
   it('spawned recurring occurrence carries the source task tags and a fresh position', () => {
     const now = new Date('2026-03-02T10:00:00Z');
-    const tag = tagService.create(db, { name: 'garden' });
+    const tag = tagService.create(ctx, { name: 'garden' });
     const task = taskService.create(ctx, {
       title: 'water plants',
       recurrence: 'FREQ=WEEKLY;BYDAY=MO',
       dueAt: new Date('2026-03-02T09:00:00Z'),
     });
-    tagService.attach(db, task.id, tag.id);
+    tagService.attach(ctx, task.id, tag.id);
     taskService.complete(ctx, task.id, now);
 
     const spawned = taskService

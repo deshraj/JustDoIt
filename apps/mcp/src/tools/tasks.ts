@@ -155,7 +155,7 @@ export function registerTaskTools(server: McpServer, db: Db): void {
         // Resolve tag name -> id once; an unknown tag matches nothing.
         let tagId: string | undefined;
         if (tag) {
-          const match = tagService.list(db).find((t) => t.name === tag);
+          const match = tagService.list(ctx).find((t) => t.name === tag);
           if (!match) return [];
           tagId = match.id;
         }

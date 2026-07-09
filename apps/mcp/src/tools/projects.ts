@@ -57,9 +57,9 @@ export function registerProjectTools(server: McpServer, db: Db): void {
         // idempotent create. So this looks the tag up by name via `tagService.list`
         // first and only creates it when absent, per the plan's own documented
         // fallback for that case.
-        const existing = tagService.list(db).find((t) => t.name === name);
-        const tag = existing ?? tagService.create(db, { name, color });
-        tagService.attach(db, taskId, tag.id);
+        const existing = tagService.list(ctx).find((t) => t.name === name);
+        const tag = existing ?? tagService.create(ctx, { name, color });
+        tagService.attach(ctx, taskId, tag.id);
         return { taskId, tag };
       }),
   );

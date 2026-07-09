@@ -18,19 +18,19 @@ export function taskTagRoutes(db: Db): Hono<AppEnv> {
 
   r.get('/tasks/:id/tags', (c) => {
     taskService.get(c.var.ctx, c.req.param('id'));
-    return c.json(tagService.listForTask(db, c.req.param('id')));
+    return c.json(tagService.listForTask(c.var.ctx, c.req.param('id')));
   });
 
   r.post('/tasks/:id/tags', zValidator('json', attachBody), (c) => {
     taskService.get(c.var.ctx, c.req.param('id'));
-    tagService.attach(db, c.req.param('id'), c.req.valid('json').tagId);
-    return c.json(tagService.listForTask(db, c.req.param('id')), 201);
+    tagService.attach(c.var.ctx, c.req.param('id'), c.req.valid('json').tagId);
+    return c.json(tagService.listForTask(c.var.ctx, c.req.param('id')), 201);
   });
 
   r.delete('/tasks/:id/tags/:tagId', (c) => {
     taskService.get(c.var.ctx, c.req.param('id'));
-    tagService.detach(db, c.req.param('id'), c.req.param('tagId'));
-    return c.json(tagService.listForTask(db, c.req.param('id')));
+    tagService.detach(c.var.ctx, c.req.param('id'), c.req.param('tagId'));
+    return c.json(tagService.listForTask(c.var.ctx, c.req.param('id')));
   });
 
   return r;

@@ -18,8 +18,8 @@ function seed(db: Db): void {
   const proj = projectService.create(ctx, { name: 'Work' });
   const parent = taskService.create(ctx, { title: 'parent', projectId: proj.id });
   taskService.addSubtask(ctx, parent.id, { title: 'child' });
-  const tag = tagService.create(db, { name: 'focus' });
-  tagService.attach(db, parent.id, tag.id);
+  const tag = tagService.create(ctx, { name: 'focus' });
+  tagService.attach(ctx, parent.id, tag.id);
 }
 
 describe('exportService', () => {

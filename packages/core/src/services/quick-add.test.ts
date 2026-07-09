@@ -63,14 +63,16 @@ describe('quickAddService.create', () => {
     expect(projectService.get({ db, userId: LOCAL_USER_ID }, task.projectId!).name).toBe(
       'errands-list',
     );
-    expect(tagService.listForTask(db, task.id).map((t) => t.name)).toEqual(['errands']);
+    expect(tagService.listForTask({ db, userId: LOCAL_USER_ID }, task.id).map((t) => t.name)).toEqual([
+      'errands',
+    ]);
   });
 
   it('reuses an existing project and tag by name', () => {
     const proj = projectService.create({ db, userId: LOCAL_USER_ID }, { name: 'work' });
-    const tag = tagService.create(db, { name: 'writing' });
+    const tag = tagService.create({ db, userId: LOCAL_USER_ID }, { name: 'writing' });
     const task = quickAddService.create(db, 'draft @work #writing', NOW);
     expect(task.projectId).toBe(proj.id);
-    expect(tagService.listForTask(db, task.id)[0]!.id).toBe(tag.id);
+    expect(tagService.listForTask({ db, userId: LOCAL_USER_ID }, task.id)[0]!.id).toBe(tag.id);
   });
 });

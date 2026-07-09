@@ -118,6 +118,7 @@ export const quickAddService = {
   },
 
   create(db: Db, text: string, now: Date = new Date()): Task {
+    const ctx = { db, userId: LOCAL_USER_ID };
     const parsed = parseQuickAdd(text, now);
     if (!parsed.title) throw new ValidationError('Quick-add text produced an empty title');
 
@@ -128,27 +129,22 @@ export const quickAddService = {
         .from(projects)
         .where(eq(projects.name, parsed.projectName))
         .get();
-      projectId = existing
-        ? existing.id
-        : projectService.create({ db, userId: LOCAL_USER_ID }, { name: parsed.projectName }).id;
+      projectId = existing ? existing.id : projectService.create(ctx, { name: parsed.projectName }).id;
     }
 
-    const task = taskService.create(
-      { db, userId: LOCAL_USER_ID },
-      {
-        title: parsed.title,
-        priority: parsed.priority ?? null,
-        projectId: projectId ?? null,
-        dueAt: parsed.dueAt ?? null,
-      },
-    );
+    const task = taskService.create(ctx, {
+      title: parsed.title,
+      priority: parsed.priority ?? null,
+      projectId: projectId ?? null,
+      dueAt: parsed.dueAt ?? null,
+    });
 
     for (const name of parsed.tags) {
       const existing = db.select().from(tags).where(eq(tags.name, name)).get();
-      const tag = existing ?? tagService.create(db, { name });
-      tagService.attach(db, task.id, tag.id);
+      const tag = existing ?? tagService.create(ctx, { name });
+      tagService.attach(ctx, task.id, tag.id);
     }
 
-    return taskService.get({ db, userId: LOCAL_USER_ID }, task.id);
+    return taskService.get(ctx, task.id);
   },
 };
