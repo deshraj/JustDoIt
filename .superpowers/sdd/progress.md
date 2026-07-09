@@ -31,3 +31,8 @@ Phase 6: complete (commits 6245929..08e8fd0, 251 tests total, gates green, web b
 - 4 parallel fix agents applied Critical+Important+cheap Minors, each TDD, scoped per package.
 - Final gates: 306 tests (core 124, api 52, mcp 40, web 90), typecheck/lint/format green, web build OK, API runtime smoke (quick-add NL parse) verified.
 - ALL PHASES COMPLETE + REVIEWED + FIXED.
+
+## Phase 7 (multitenant hosting)
+- [x] 7a Core multitenancy: merged (merge commit, 344 tests incl isolation gate 5/5 + SSE per-user filter; core 161/api 53/mcp 40/web 90). users/api_keys tables, user_id everywhere, Ctx threading, local-user default.
+- [ ] 7b GitHub auth
+- [ ] 7c Railway deploy
